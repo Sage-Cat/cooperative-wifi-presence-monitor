@@ -52,3 +52,6 @@ does not claim a new scientific method or measured performance.
 `docs/` specify architecture, interfaces, platforms, future verification, and
 a planned installation and privacy contract. No install command is available
 until an implementation exists.
+
+See [use cases and actors](docs/use-cases.md) for the operator, integrator,
+observation-source, and consuming-application interactions.

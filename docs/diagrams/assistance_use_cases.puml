@@ -1,0 +1,22 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "Separately qualified\nanomaly source" as Anomaly
+actor "External application\noperator" as ExternalOperator
+actor "Authorized support\nrecipient" as Recipient
+
+rectangle "Prospective external application\n(separate system; outside presence core)" as Extension #line.dashed {
+  usecase "Review separately\nqualified anomaly" as UC_Review
+  usecase "Confirm assistance\nrequest" as UC_Confirm
+  usecase "Send confirmed assistance\nrequest" as UC_Request
+}
+
+Anomaly -- UC_Review
+ExternalOperator -- UC_Review
+ExternalOperator -- UC_Confirm
+ExternalOperator -- UC_Request
+Recipient -- UC_Request
+
+@enduml

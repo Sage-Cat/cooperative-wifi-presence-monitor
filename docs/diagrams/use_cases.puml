@@ -1,0 +1,25 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor Operator
+actor Integrator
+actor "Observation source" as Source
+actor "Consuming application" as Consumer
+
+rectangle "Wi-Fi Presence Monitor\n(core contract)" as Core {
+  usecase "Supply observation\nwindows" as UC_Source
+  usecase "Configure qualified\nmodel and profile" as UC_Config
+  usecase "View current\nzone estimate" as UC_View
+  usecase "Inspect freshness\nand reasons" as UC_Inspect
+  usecase "Consume result within\nvalidity horizon" as UC_Consume
+}
+
+Source -- UC_Source
+Integrator -- UC_Config
+Operator -- UC_View
+Operator -- UC_Inspect
+Consumer -- UC_Consume
+
+@enduml

@@ -1,82 +1,47 @@
 # Platforms and deployment boundary
 
-## Portable C++17 core
+## Portable core
 
-The proposed core is C++17 and owns only deterministic parsing/validation of
-normalized records, window assembly, eligibility and freshness checks, frozen
-feature execution, three-valued classification, and result serialization. It
-must not own serial ports, shell commands, wireless drivers, AP configuration,
-or network-control policy. The core receives typed values from adapters; it
-does not discover a backend from a platform name and infer its capabilities.
+The proposed C++17 core owns deterministic validation of normalized records,
+window assembly, eligibility and freshness checks, frozen feature execution,
+three-valued classification, and result serialization. It receives typed
+values from adapters. It does not own radio acquisition, device discovery,
+wireless drivers, platform control APIs, or network policy.
 
-A future CMake build keeps the core independent of systemd, `ubus`, TR-181, and
-vendor SDKs. Select and pin JSON/model-runtime dependencies and cover them in
-the bundle contract; C++17 alone does not define ABI, target, or dependencies.
-The actual build manifest must name supported architectures and libraries.
-There is no C++ source, project, binary, or supported toolchain today.
+A future build must name supported architectures, compilers, libraries and
+runtime dependencies. C++17 alone does not define ABI or guarantee that a
+target supplies those dependencies. No source code, binary, package, or
+supported toolchain is provided by this design.
 
-## POSIX Linux first
+## Linux service adapter
 
-The first proposed service adapter is for a conventional Linux host, including
-the existing Raspberry Pi controller/collector host. It may use a systemd unit,
-read-only access to collector record output and approved CWS context, a local
-socket for result publication, and an atomically replaced current-result file.
-Service paths, user/group, permissions, and retention are deployment config,
-not compiled defaults. The adapter must not run as root without a separately
-reviewed device-access requirement. The Collector remains responsible for
-exclusive serial access; the monitor does not open the sensor serial device.
+Linux is the proposed first service target, subject to a named and tested
+support matrix. The adapter may manage service lifecycle, local input access,
+result publication, and bounded diagnostics. Paths, permissions, retention,
+service user, and transport are deployment configuration, not compiled
+defaults. The process should run with least privilege and read-only access to
+observation sources. A build for one Linux target does not establish support
+for other architectures or distributions.
 
-Every feed must preserve the source envelope and expose gaps/reconnects. The
-collector UDP mirror is best-effort; finalized records remain replay authority.
-Files, sockets, and UDP binds must be local or deployment-isolated and
-authenticated. This design does not authorize a network listener.
+## Optional embedded adapters
 
-## OpenWrt SDK / procd / ubus: optional future target
+OpenWrt is a possible later target requiring a selected SDK, target ABI,
+dependency verification, package metadata, service definition, and device
+testing. `procd` and `ubus` provide service and IPC mechanisms; they do not
+provide CSI or normalized observations. Integration must remain read-only and
+must not write configuration or alter radio, association, routing, QoS, or
+measurement policy.
 
-OpenWrt is not implied by Linux portability. A future package would require a
-selected OpenWrt SDK and target ABI, cross-build verification, package metadata,
-procd service definition, storage and watchdog decisions, and compatibility
-checks for the exact release and hardware. `ubus`/UCI integration would be a
-separate adapter whose operations, readback, and permissions are documented.
-The presence monitor itself remains read-only. It would not write UCI, call a
-radio/channel setter, change association, set QoS, or install a measurement
-policy.
-
-The CWS Control Daemon has a backend-neutral adapter contract but no real AP
-adapter, client, or confirmed API. It is not a runtime dependency here. Any
-later controller integration remains read-only to this monitor. OpenWrt is an
-explicit optional later design target, subject to a selected SDK, target ABI,
-package build, and target-device verification. OpenWrt documents `procd` service
-management, `ubus` inter-process APIs, and package creation; these provide
-platform integration mechanisms, not a guarantee that a device exports the
-required CSI or normalized source records. See the [OpenWrt procd guide](https://openwrt.org/docs/guide-developer/procd),
-[ubus reference](https://openwrt.org/docs/techref/ubus),
-[package creation guide](https://openwrt.org/docs/guide-developer/packages), and
-[build options](https://openwrt.org/docs/guide-developer/packages.flags). The
-package must verify its actual C++17 compiler/library and dependency support in
-the chosen SDK; the platform documentation does not establish that support for
-all targets.
-
-## prplOS as currently integrated
-
-The existing prplOS path is a read-only shell telemetry agent for available
-TR-181/pWHM counters. It posts to CWS; it does not run this service on an AP or
-configure radio/QoS/security/association. The initial implementation target remains the Linux collector/controller host,
-with available prplOS data as optional context. A later prplOS adapter and
-AP-local inference are included in the design range, conditional on a named
-image, SDK, permissions, and stable radio/CSI APIs. The prplFoundation
-[Wi-Fi sensing component](https://gitlab.com/prpl-foundation/prplmesh/wifi-sensing)
-and its [prplMesh Wi-Fi Sensing data-model documentation](https://gitlab.com/prpl-foundation/prplmesh/prplMesh/-/wikis/Wi-Fi-Sensing)
-are concrete integration references for a particular stack profile. They do
-not imply a universal CSI interface across prplOS images, vendors, radios, or
-firmware. No installed support, API compatibility, CSI availability, or AP-local
-runtime is claimed for this means today.
+prplOS or another managed access-point stack is a possible platform adapter
+only when a specific image, SDK, permission model, and stable observation
+interface have been verified. A stack-specific sensing interface is not a
+universal CSI interface. No AP, firmware, vendor, or sensing API compatibility
+is claimed.
 
 ## Deployment claims
 
-“Portable Linux service” means buildable and operable on each verified named
-target. It does not imply OpenWrt, prplOS, every Pi, arbitrary CSI chipsets, or
-production hardening. OpenWrt and prplOS remain explicit optional later targets,
-not part of the initial Linux pilot. Record toolchain, dependencies, transport, context schema,
-and model profile. A build does not establish scientific accuracy, occupancy
-truth, privacy acceptability, or operational safety.
+“Portable” describes a core boundary and design intent. Installability and
+support apply only after clean builds, packaging, and operation have been
+verified for named targets. A platform adapter cannot compensate for missing
+or unsuitable sensing data. Software conformance does not establish detection
+accuracy, transfer to another environment, privacy acceptability, or safety.

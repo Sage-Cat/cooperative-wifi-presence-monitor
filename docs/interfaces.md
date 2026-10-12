@@ -4,42 +4,45 @@ This document separates existing upstream contracts from a proposed downstream
 result contract. It does not claim any of these future consumer interfaces are
 implemented.
 
-## Existing source input
+## Normalized observation boundary
 
-The collector-owned `cws-source-record/2` is the canonical input; the monitor
-does not change its envelope. Required v1-compatible
-facts include `source_id`, `session_id`, `connection_epoch`, `source_sequence`,
-`ingest_wall_time_ns`, `ingest_monotonic_ns`, and `raw`. Version 2 additionally
-provides `ingest_sequence`, `raw_sha256`, `parser_status`, `parser_reason`, and
-nullable `device_sequence`, `boot_epoch`, and `config_epoch`.
+The core consumes normalized, typed observation records; it is independent of
+any collector, project checkout, transport, or hardware API. Each adapter maps
+one declared source schema to this boundary and preserves opaque source ID,
+sequence and epoch facts, capture and ingest times, integrity/parser status,
+missingness, and time-mapping uncertainty. It must not infer absent facts.
+The proposed `cws-source-record/2` adapter is an optional first integration,
+not the canonical or required input. That adapter validates the source schema
+and raw hash; compatibility with older source versions is adapter-specific and
+must leave missing fields unknown.
 
-Verify the major version and v2 raw hash before parsing. Unknown majors,
-malformed records, broken hashes, invalid envelope fields, and unusable
-sequence facts are not valid observations. Historical v1 records remain
-readable, but absent hashes, epochs, parser results, or device sequences stay
-unknown. A legacy record is usable only if the frozen pipeline does not require
-an absent fact.
+Unknown schema versions, malformed records, failed integrity checks, invalid
+fields, and unusable sequence facts are not valid observations. An adapter may
+support legacy input, but absent hashes, epochs, parser results, or device
+sequences stay unknown. A record is usable only if the frozen pipeline does
+not require an absent fact.
 
-Capture time differs from collector ingest time. Preserve the raw device
-timestamp and any clock mapping's source and uncertainty. Ingest clocks can
-indicate arrival order and transport delay, not capture instant. CWS timing
-assessment may be consumed only as an explicit, separately versioned fact. The
-monitor does not invent synchronization or infer simultaneity from arrivals.
+Capture time differs from ingest time. Preserve the source timestamp and any
+clock mapping's source and uncertainty. Ingest clocks can indicate arrival
+order and transport delay, not capture instant. Timing assessments may be
+consumed only as explicit, separately versioned facts. The monitor does not
+invent synchronization or infer simultaneity from arrivals.
 
 ## Optional operational context
 
 Operational context is not sensing evidence by default. A future adapter may
-consume read-only CWS host-network context and/or its prplOS/TR-181 context,
-normalize known fields, and report context age and availability. It must retain
-the context source and original sample time. A QoS or network-service failure
-does not instantly invalidate a still-fresh presence window. Conversely, a
-fresh context record does not repair stale, missing, or corrupt CSI. A reviewed
-profile may explicitly connect a particular context field to an evidence gate;
+consume a documented context interface, normalize known fields, and report
+context age and availability. It must retain the context source and original
+sample time. A network-service failure does not instantly invalidate a
+still-fresh presence window. Conversely, fresh context does not repair stale,
+missing, or corrupt observations. A reviewed profile may explicitly connect a
+particular context field to an evidence gate;
 that mapping must be fixed in the profile and reported in result provenance.
 
 The adapter must not parse undocumented vendor text by heuristic field names,
-write CWS files, invoke its control commands, or infer that “high load” means
-“person present.” Context parse failure is an independent status and reason.
+write provider state, invoke provider control commands, or infer that “high
+load” means “person present.” Context parse failure is an independent status
+and reason.
 
 ## Frozen model bundle
 
@@ -54,8 +57,7 @@ Before classifying, verify a model-bundle manifest hash. It declares:
 - supported single-source or cooperative subsets, minimum source count, and
   temporal compatibility requirements;
 - declared domain envelope and the metadata needed to check it;
-- model and pipeline authoring/build provenance sufficient to identify the
-  reviewed artifact.
+- build and artifact provenance sufficient to identify the reviewed bundle.
 
 The manifest describes the tested envelope; it cannot detect unmeasured room,
 radio, participant, antenna, placement, or environmental changes. Runtime checks
@@ -66,10 +68,10 @@ stream-based model selection are out of scope.
 
 Feature extraction must match the frozen manifest exactly. Missing fields,
 unexpected order, incompatible units, unrecognized preprocessing version, or
-model-hash mismatch blocks inference. CWS native `confidence`, `reliability`,
-`trigger`, and `motion_score` are not model probabilities or presence labels.
-They may be retained as named context only if the model manifest explicitly
-declares them as inputs and records their source/version.
+model-hash mismatch blocks inference. Source-specific confidence, reliability,
+trigger, or motion fields are not model probabilities or presence labels. They
+may be retained as named context only if the model manifest explicitly declares
+them as inputs and records their schema and version.
 
 ## Time and expiry contract
 
@@ -111,7 +113,7 @@ assuming that the publisher's timestamp is comparable. Within a process boot,
 monotonic time governs local expiry. Wall-clock steps and restarts require
 re-establishing the mapping.
 
-## Proposed result: `cws-presence-result/1`
+## Proposed result: `wifi-presence-result/1`
 
 One immutable result record contains the current estimate, evidence and domain
 states, source window, provenance, and optional history pointer. Field meanings
@@ -120,7 +122,7 @@ required fields.
 
 | Field | Contract |
 |---|---|
-| `schema_version` | Exactly `cws-presence-result/1` for this design. |
+| `schema_version` | Exactly `wifi-presence-result/1` for this design. |
 | `result_id` | Unique result identifier generated by the monitor; no user or site identity. |
 | `zone_id` | Opaque operator-configured sensing-zone label. |
 | `estimate` | `present`, `absent`, or `unknown`; `unknown` is the only allowed result when a required gate fails. |
@@ -129,7 +131,7 @@ required fields.
 | `evidence_window` | Source IDs, session/connection epochs, first/last source sequence, capture start/end, time basis, mapping status, and uncertainty. |
 | `age` | Conservative upper bound `A`, configured maximum age, and calculation time basis. |
 | `valid_until` | Conservative expiry instant in an explicit named time basis, or `null` when it cannot be established; never an unqualified cross-host monotonic value. |
-| `provenance` | Collector record-schema version; model, pipeline and config IDs/hashes; daemon build ID; optional CWS-context IDs/hash. |
+| `provenance` | Source-record schema version; model, pipeline and config IDs/hashes; software build ID; optional context IDs/hash. |
 | `last_known` | Separate optional historical estimate with its original result ID, class, window, validity, and expiry. Never substituted for `estimate`. |
 | `operational_context` | Separate status/time/source for optional network-service context; never folded into the class without a manifest/profile rule. |
 
@@ -137,7 +139,7 @@ Illustrative shape (placeholders only):
 
 ```json
 {
-  "schema_version": "cws-presence-result/1",
+  "schema_version": "wifi-presence-result/1",
   "result_id": "<opaque-result-id>",
   "zone_id": "<configured-zone-label>",
   "estimate": "unknown",
@@ -152,7 +154,7 @@ Illustrative shape (placeholders only):
   },
   "evidence_window": {
     "source_ids": ["<opaque-source-id>"],
-    "record_schema": "cws-source-record/2",
+    "record_schema": "<source-schema/version>",
     "capture_start": null,
     "capture_end": null,
     "time_basis": "unknown",
@@ -166,7 +168,7 @@ Illustrative shape (placeholders only):
     "pipeline_id": "<pipeline-id>",
     "pipeline_sha256": "<sha256>",
     "config_sha256": "<sha256>",
-    "daemon_build_id": "<build-id>"
+    "service_build_id": "<build-id>"
   },
   "last_known": null,
   "operational_context": {"state": "unknown", "source": null, "sample_time": null}

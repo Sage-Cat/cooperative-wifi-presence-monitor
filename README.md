@@ -1,18 +1,20 @@
 # Cooperative Wi-Fi Presence Monitor
 
-**Software MEANS design** · `cooperative_wifi_presence_monitor`
+**Software means — design specification** · `cooperative_wifi_presence_monitor`
 
-This directory specifies a separately installable, read-only Linux service for
-publishing a current zone-level Wi-Fi presence estimate together with its
-validity, age, and evidence provenance. It consumes records owned by the
-Autonomous CSI Collector and may consume read-only operational context from the
-CWS Control Daemon. It does not acquire serial data, control sensing rates,
-change a radio or network, or replace either existing service.
+This repository specifies a portable, read-only software service for publishing
+a zone-level Wi-Fi presence estimate together with its validity, age, and
+evidence provenance. Its core consumes a normalized observation interface;
+platform and source adapters are optional boundaries. A proposed adapter for
+`cws-source-record/2` and optional read-only CWS context are examples, not
+dependencies. The service does not acquire radio data or control a radio,
+network, or measurement rate.
 
-**Status: design only; review pending. There is no executable implementation,
-model artifact, experiment, deployment, or active scientific claim here.** The
-proposed implementation language is C++17. The portable decision core and
-external interfaces are described in `docs/`; authoring code is a later step.
+**Status: design only. There is no executable implementation, model artifact,
+experiment, deployment, or measured performance claim here.** The proposed
+implementation language is C++17. The portable decision core and external
+interfaces are described in `docs/`; implementation and installability remain
+future work.
 
 ## Bounded practical task
 
@@ -25,31 +27,28 @@ incompatible, or insufficient evidence yields `unknown`; it must never be
 converted to `absent`. The last known estimate is retained as historical
 context and is not presented as the current state after expiry.
 
-The intended operator is an authorized operator of an indoor cooperative Wi-Fi
-sensing setup. A future deployment could expose the result to a local
-human-facing or downstream application, but this design makes no claim about
-shelter, defense, medical, safety, or production-network performance. “Zone” is
-a configured sensing area, not a person identity or precise location.
+The intended use is an indoor cooperative Wi-Fi sensing setup. A future
+deployment could expose the result to a local application, but this design
+makes no claim about shelter, defense, medical, safety, or production-network
+performance. “Zone” is a configured sensing area, not a person identity or
+precise location.
 
-## Relationship to current means
+## Adapter boundaries
 
-The Autonomous CSI Collector remains the authority for serial acquisition,
-source-record integrity, and firmware-rate transaction acknowledgements. The
-CWS Control Daemon remains the authority for measurement-policy decisions,
-timing evaluation, and its verified rate-control path. The monitor may read
-their declared outputs but does not write to their state, submit control
-commands, or reinterpret their decisions as presence labels.
+Source adapters translate declared, versioned observation formats into the
+normalized core interface while preserving source facts and uncertainty. The
+proposed `cws-source-record/2` adapter is one optional integration. A CWS
+context adapter is also optional and cannot supply a presence class. Neither
+adapter or project checkout is a runtime requirement; an equivalent source can
+implement the normalized interface independently.
 
-CWS currently exposes evidence availability, confidence/reliability, a motion
-trigger, and a fused motion score. Those values support measurement control;
-they are not a presence classifier. This design therefore requires an explicit
-frozen feature pipeline and model artifact before it can publish `present` or
-`absent`. It does not claim a new scientific method. Any new classification
-rule, quantitative result, or human-performance claim needs a separately
-defined and reviewed method and its own evidence.
+Optional operational context remains distinct from sensing evidence. A context
+field is usable as a model input only when the frozen model contract explicitly
+declares its source and version. The service requires a frozen feature pipeline
+and model artifact before it can publish `present` or `absent`. This design
+does not claim a new scientific method or measured performance.
 
-`mean.toml` records the identity and practical contract. The four documents in
-`docs/` specify architecture, interfaces, platforms, and future verification.
-Runtime outputs, local configuration, model bundles, private experiment
-material, generated build trees, and worktrees are excluded. Privacy, licensing,
-validation, and publication review precede any distribution.
+`mean.toml` records the identity and practical contract. The documents in
+`docs/` specify architecture, interfaces, platforms, future verification, and
+a planned installation and privacy contract. No install command is available
+until an implementation exists.

@@ -2,13 +2,15 @@
 
 These are future software acceptance criteria, not completed checks, physical
 experiment requirements, or scientific evidence. Manuscripts and experiment
-plans belong to their publication/experiment owners.
+plans are separate from these software acceptance requirements.
 
 ## Contract and provenance checks
 
-- Accept collector `cws-source-record/2` only after validating required fields,
-  raw-record SHA-256, parser status, epoch types, source identity, and supported
-  major version. Test historical v1 handling without inventing v2 facts.
+- Validate normalized records at the core boundary and test each source adapter
+  against its declared schema, integrity rules, time semantics, and supported
+  versions. The optional `cws-source-record/2` adapter must validate required
+  fields, raw-record SHA-256, parser status, epoch types, and source identity;
+  absent legacy facts remain unknown.
 - Reject malformed JSON/CSI, bad hashes, unknown majors, impossible sequence
   transitions, duplicate or late inputs where the configured window cannot
   resolve them, and invalid configuration/model manifests. Preserve typed
@@ -51,11 +53,11 @@ plans belong to their publication/experiment owners.
 - Linux tests use temporary paths and mocked inputs to verify read-only owner
   boundaries, atomic publication, bounded history, permissions, restart
   behavior, and absence of firmware/network-control calls.
-- Feed collector source-record fixtures through both replay and the chosen live
-  adapter. Deliberately drop, duplicate, reorder, and reconnect records; the
-  result must expose those facts and follow the frozen unknown/expiry behavior.
-- Verify the CWS context adapter against a versioned fixture. Until its schema
-  is selected, context remains optional and may report unknown.
+- Feed normalized fixtures through replay and each supported source adapter.
+  Deliberately drop, duplicate, reorder, and reconnect records; the result must
+  expose those facts and follow the frozen unknown/expiry behavior.
+- Verify each optional context adapter against a versioned fixture. Context
+  remains optional and may report unknown.
 - Build and run unit/contract tests for every named Linux architecture and
   compiler/toolchain in the eventual support matrix. OpenWrt SDK/procd/ubus
   package tests are separate future acceptance checks; prplOS operation is not
@@ -68,3 +70,11 @@ their declared inputs. Neither proves people detection, transfer to a new room,
 protective-site suitability, or dependable alarms. Those claims require
 separately authorized studies, reference labels, held-out conditions, privacy
 and human/operational review. No such evidence is part of this design.
+
+## Installation boundary checks
+
+A future clean-install check must compare package members against the declared
+allowlist, run without a development checkout, and verify that defaults create
+no persistent cache, log or identity mapping. Test optional logging limits and
+that configuration, inputs and outputs stay outside the installation tree.
+No telemetry or source-discovery connection may occur on startup.

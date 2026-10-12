@@ -1,4 +1,4 @@
-# Task worktrees and generated/runtime output are never repository content.
+# Generated build products
 /wt/
 /build/
 /cmake-build-*/
@@ -6,13 +6,37 @@
 /generated/
 /mean/experiments.generated.toml
 /evidence/publications.generated.toml
+dist/
+*.o
+*.a
+*.so
+*.so.*
+*.exe
 
-# Private operational and experiment material stays with its authorized owner.
-/private/
+# Local caches and runtime state
+.cache/
+cache/
+runtime/
+logs/
+*.log
+*.tmp
+*.swp
+
+# Private inputs and local configuration
+data/
+datasets/
+recordings/
 /experiments/
+/private/
 /runs/
-/data/
 *.partial
-
-# Per-machine CMake configuration.
+models/
+config.local.*
+*.local.toml
+.env
+.env.*
 /CMakeUserPresets.json
+
+# Editor and platform noise
+.DS_Store
+Thumbs.db

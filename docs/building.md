@@ -52,6 +52,11 @@ not by itself establish support for other architectures, OpenWrt or prplOS.
 cmake --install build --prefix /usr/local
 ```
 
+Configure `CMAKE_INSTALL_PREFIX` before building when choosing another deployed
+prefix: the optional systemd unit embeds that configured executable path. An
+install-time `--prefix` override is useful for staging, but does not rewrite the
+unit. For a system package, prefer a configured `/usr` prefix plus `DESTDIR`.
+
 This command may need operator privileges for a system prefix. For an unprivileged
 clean-install check, choose a writable prefix or set `DESTDIR` to a temporary
 staging directory. The allowlist in `packaging/INSTALL_ALLOWLIST.txt` describes

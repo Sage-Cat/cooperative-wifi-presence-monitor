@@ -4,6 +4,10 @@ These tests use synthetic numerical observations and a synthetic linear fixture.
 They establish software behavior, not stationary-person detection, physical
 accuracy, room transfer, radio performance or operational safety.
 
+The [recorded run with screenshots and numerical results](software-acceptance-2026-10-13.md)
+and its [machine-readable summary](software-acceptance-2026-10-13.json) identify
+the exact checked software and artifacts.
+
 | Route | Concrete checks |
 |---|---|
 | `presence_core_acceptance` | Inclusive expiry, uncertainty and future mapping; candidate/current separation; exact source subset; bounded latest pending; unexpected, duplicate and obsolete completion; slow inference; source/domain invalidation; simultaneous epoch/feature change; signed-clock extremes |

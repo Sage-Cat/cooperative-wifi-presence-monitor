@@ -1,0 +1,163 @@
+{
+  "schema_version": "presence-synthetic-acceptance-summary/1",
+  "checked_commit": "2416e4e9a1cbbd80373c9ee213b86bcdd3b75d30",
+  "software_version": "0.1.0",
+  "scope": "synthetic software conformance only",
+  "qemu_started_utc": "2026-10-13T17:29:17.818626+00:00",
+  "qemu_finished_utc": "2026-10-13T17:29:30.205529+00:00",
+  "native_ctest": {
+    "passed": 4,
+    "failed": 0
+  },
+  "python_service_cases": 13,
+  "invalid_bundle_subcases": 12,
+  "guest_core_groups": 5,
+  "guest_service_groups": 8,
+  "actual_guest_time_namespace": {
+    "status": "passed",
+    "skips": [],
+    "operation": "disposable child unshare(CLONE_NEWTIME), followed by descendant fork",
+    "tested": "different namespace token on same boot is rejected; default namespace evidence recovers"
+  },
+  "native_actual_time_namespace": "disabled deliberately; operation is guest-only",
+  "synthetic_fixture": {
+    "provenance_kind": "synthetic",
+    "explicit_opt_in": "--allow-synthetic",
+    "task": "zone-presence",
+    "source_ids": [
+      "rx-a",
+      "rx-b"
+    ],
+    "feature_names": [
+      "synthetic_level"
+    ],
+    "feature_units": [
+      "unitless"
+    ],
+    "required_metadata": {
+      "scenario": "synthetic"
+    },
+    "aggregation": "per-source-mean",
+    "weights_source_major": [
+      1.0,
+      1.0
+    ],
+    "bias": 0.0,
+    "absent_threshold": -0.5,
+    "present_threshold": 0.5,
+    "samples_per_source": 2,
+    "max_window_span_ms": 200,
+    "max_alignment_ms": 50,
+    "max_uncertainty_ms": 20,
+    "normal_observation_uncertainty_ms": 0,
+    "class_examples": [
+      {
+        "per_source_mean": 1.0,
+        "score": 2.0,
+        "estimate": "present"
+      },
+      {
+        "per_source_mean": -1.0,
+        "score": -2.0,
+        "estimate": "absent"
+      },
+      {
+        "per_source_mean": 0.0,
+        "score": 0.0,
+        "estimate": "unknown"
+      }
+    ],
+    "guest_scenario_maximum_age_ms": {
+      "classes": 1500,
+      "candidate_and_eof": 650,
+      "malformed_and_subset": 1500,
+      "invalidation": 1500,
+      "flood_atomicity": 650,
+      "restart_and_writer": 1500,
+      "startup_guards": 650,
+      "clock_namespaces": 1500
+    },
+    "host_single_source_variant": {
+      "source_ids": [
+        "rx-a"
+      ],
+      "weights_source_major": [
+        1.0
+      ]
+    }
+  },
+  "native_fixed_horizon_observation": {
+    "clock": "CLOCK_BOOTTIME",
+    "relative_origin": "latest capture end",
+    "maximum_age_ms": 650,
+    "uncertainty_ms": 0,
+    "original_deadline_relative_ms": 650,
+    "candidate_retained_deadline_relative_ms": 650,
+    "expiry_publication_relative_ms": 654,
+    "expiry_observed_relative_ms": 667,
+    "expiry_publication_lag_ms": 4,
+    "expiry_read_lag_ms": 17,
+    "transitions": [
+      "present",
+      "present after rejected candidate",
+      "unknown after EOF expiry"
+    ],
+    "consumer_at_deadline": "present",
+    "consumer_after_deadline": "unknown"
+  },
+  "guest_eof_observation": {
+    "configured_maximum_age_ms": 650,
+    "rejected_candidate_retained_original_deadline": true,
+    "observed_expiry_lag_ms": 7,
+    "derived_conservative_age_at_observation_ms": 657,
+    "age_derivation": "maximum age plus reported guest observation lag; zero uncertainty"
+  },
+  "qemu": {
+    "schema_version": "presence-qemu-acceptance/1",
+    "qemu_exit_code": 0,
+    "guest_test_exit_code": 0,
+    "network": "disabled",
+    "acceleration": "tcg",
+    "architecture": "x86_64",
+    "sha256": {
+      "kernel": "2b2358b37674d2505350528875bb17afae2a36522a9e8a9417eaca65a7da0e08",
+      "qemu": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+      "monitor": "301f2e07c21896f18e777aa83e93e27e406e8f9c0ddd07b023decb57f8958a2b",
+      "guest_tests": "7240d1fd674597e6a001b185d9e817bf594e8ce249635bff920234fde2e78009",
+      "initramfs": "51873a0c63adea34388d4e9126ccbdc92bcb01026846d384427550381480b1da",
+      "serial_log": "062fb43bc63fb489131700bb42d25e011428e167ca736b98e9d84760ba95eb4f",
+      "screenshot_ppm": "b55ff6d975792fa8a95a30d720a2b3be6788a3bca79a2bf2417c5f8f4a640a30",
+      "core_tests": "9f00c9c6cc7439984cc1b05c3e9fa4ba07a7aa5d4e8a0c97390550d25f539d6f",
+      "core_screenshot_ppm": "4e309de16c11bd44d2ba862ad18ec528e57dac4ea0588799a58ae0f6d66beaa1",
+      "bios": "1a9ea4f17bcfb27bda5728e2c21d9fa074cf7947b9b4910bb28213a735c96735",
+      "vga_bios": "4eecd8e752efc02c6c0fe87eb92bf66934cb9ea67b0e1bc41e86f8430c8bf8a0"
+    }
+  },
+  "installation": {
+    "schema_version": "presence-install-acceptance/1",
+    "test_exit_code": 0,
+    "package_members_match": true,
+    "package_unchanged": true,
+    "network_syscalls": 0,
+    "default_persistent_directories": [],
+    "installed_files_sha256": {
+      "bin/wifi-presence-monitor": "301f2e07c21896f18e777aa83e93e27e406e8f9c0ddd07b023decb57f8958a2b",
+      "lib/systemd/system/wifi-presence-monitor.service": "c70721c0834a8e169996734dd344b95fd05e2e0615f5dca54a0ac6ce14d5908a",
+      "share/cooperative-wifi-presence-monitor/INSTALL_ALLOWLIST.txt": "927fdcb7d667b48110cdc0549892692935ee936d4ea58f837d3238aa06dce5ed",
+      "share/cooperative-wifi-presence-monitor/OpenSSL-LICENSE.txt": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+      "share/cooperative-wifi-presence-monitor/THIRD_PARTY_NOTICES.txt": "1463721dffc5c0b3c36037a8488a958d43945bc006c56103e0fcf43f2b3155d6"
+    }
+  },
+  "screenshots": {
+    "qemu-core.png": "6424ded747a1ebb8e1e5554a5f2bd354893792925c045b6b36e8237061d9d4c8",
+    "qemu-service.png": "e4f65d6c388f8b4cfff8202d17375a98d76182366fffd385d2739a25378ffbc2"
+  },
+  "sanitizers": {
+    "compiler": "Clang 18.1.3",
+    "address": true,
+    "undefined_behavior": true,
+    "ctest_passed": 4,
+    "ctest_failed": 0,
+    "scope": "same namespace-aware source and independent test content as checked_commit"
+  }
+}

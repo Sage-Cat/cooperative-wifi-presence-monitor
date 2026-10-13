@@ -60,3 +60,11 @@ target_include_directories(presence_json SYSTEM INTERFACE "${CMAKE_BINARY_DIR}/_
 add_library(presence_adapters src/adapters/contracts.cpp src/adapters/output.cpp)
 target_link_libraries(presence_adapters PUBLIC presence_core presence_json PRIVATE OpenSSL::Crypto)
 target_compile_definitions(presence_adapters PUBLIC PRESENCE_BUILD_ID="${PROJECT_VERSION}")
+add_executable(wifi-presence-monitor app/main.cpp)
+target_link_libraries(wifi-presence-monitor PRIVATE presence_adapters Threads::Threads)
+configure_file(packaging/wifi-presence-monitor.service.in wifi-presence-monitor.service @ONLY)
+install(TARGETS wifi-presence-monitor RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES "${CMAKE_BINARY_DIR}/wifi-presence-monitor.service"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system)
+install(FILES packaging/THIRD_PARTY_NOTICES.txt packaging/INSTALL_ALLOWLIST.txt
+  packaging/OpenSSL-LICENSE.txt DESTINATION ${CMAKE_INSTALL_DATADIR}/cooperative-wifi-presence-monitor)

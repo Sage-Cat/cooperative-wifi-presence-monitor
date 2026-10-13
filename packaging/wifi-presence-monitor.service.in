@@ -1,0 +1,29 @@
+[Unit]
+Description=Cooperative Wi-Fi presence monitor
+After=local-fs.target
+
+[Service]
+Type=simple
+User=wifi-presence-monitor
+Group=wifi-presence-monitor
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/wifi-presence-monitor --config /etc/wifi-presence-monitor/config.json
+RuntimeDirectory=wifi-presence-monitor
+RuntimeDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/run/wifi-presence-monitor
+StandardOutput=null
+StandardError=null
+TimeoutStopSec=5
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

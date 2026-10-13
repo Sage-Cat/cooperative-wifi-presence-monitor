@@ -1,0 +1,5 @@
+bin/wifi-presence-monitor
+lib/systemd/system/wifi-presence-monitor.service
+share/cooperative-wifi-presence-monitor/THIRD_PARTY_NOTICES.txt
+share/cooperative-wifi-presence-monitor/INSTALL_ALLOWLIST.txt
+share/cooperative-wifi-presence-monitor/OpenSSL-LICENSE.txt

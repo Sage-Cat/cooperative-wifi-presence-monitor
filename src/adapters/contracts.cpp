@@ -1,5 +1,6 @@
 #include "presence/adapters.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <fcntl.h>
 #include <filesystem>
@@ -178,6 +179,29 @@ std::string digest(const std::string &data) {
     out << std::setw(2) << static_cast<unsigned>(bytes[i]);
   return out.str();
 }
+std::string local_clock_domain() {
+  auto boot_id = read_regular("/proc/sys/kernel/random/boot_id", 128);
+  while (!boot_id.empty() && (boot_id.back() == '\n' || boot_id.back() == '\r'))
+    boot_id.pop_back();
+  if (boot_id.empty())
+    bad("local_clock_identity_unavailable");
+  std::array<char, 256> namespace_link{};
+  const auto length = readlink("/proc/self/ns/time", namespace_link.data(),
+                               namespace_link.size());
+  std::string time_namespace;
+  if (length < 0) {
+    if (errno != ENOENT)
+      bad("local_time_namespace_unavailable");
+    time_namespace = "global";
+  } else {
+    if (length == 0 ||
+        static_cast<std::size_t>(length) == namespace_link.size())
+      bad("local_time_namespace_invalid");
+    time_namespace.assign(namespace_link.data(),
+                          static_cast<std::size_t>(length));
+  }
+  return digest("wifi-presence-clock/1:" + boot_id + ":" + time_namespace);
+}
 Config load_config(const std::string &path) {
   auto raw = read_regular(path, 65536);
   auto j = parse_json(raw);
@@ -291,10 +315,10 @@ Bundle load_bundle(const Config &c, bool allow_synthetic) {
     bad("thresholds_invalid");
   return b;
 }
-Observation decode(const std::string &raw, const std::string &boot_id) {
+Observation decode(const std::string &raw, const std::string &clock_domain) {
   auto j = parse_json(raw);
   keys(j, {"schema_version", "source_id", "boot_epoch", "config_epoch",
-           "sequence", "capture_ms", "uncertainty_ms", "clock_boot_id",
+           "sequence", "capture_ms", "uncertainty_ms", "clock_domain",
            "pipeline_sha256", "feature_names", "feature_units", "features",
            "metadata", "integrity", "parser_status"});
   schema(j, "wifi-presence-observation/1");
@@ -305,7 +329,7 @@ Observation decode(const std::string &raw, const std::string &boot_id) {
   o.sequence = uint(j.at("sequence"), UINT64_MAX);
   o.capture = static_cast<Time>(uint(j.at("capture_ms"), INT64_MAX - 86400000));
   o.uncertainty = time(j.at("uncertainty_ms"));
-  o.mapping_valid = str(j.at("clock_boot_id")) == boot_id;
+  o.mapping_valid = hash(j.at("clock_domain")) == clock_domain;
   o.pipeline_hash = hash(j.at("pipeline_sha256"));
   o.features = strings(j.at("feature_names"), 64, true);
   o.units = strings(j.at("feature_units"), 64);

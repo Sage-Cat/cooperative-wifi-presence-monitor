@@ -24,7 +24,7 @@ Json window(const std::optional<Window> &w) {
                       {"capture_start_ms", s.start},
                       {"capture_end_ms", s.end},
                       {"uncertainty_ms", s.uncertainty},
-                      {"mapping_status", "verified-local-boot"},
+                      {"mapping_status", "verified-local-clock-domain"},
                       {"time_basis", "CLOCK_BOOTTIME"}});
   return result;
 }

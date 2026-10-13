@@ -1,14 +1,15 @@
 """Reference acceptance consumer; local OS context is supplied independently."""
-import hashlib
 
 
 def integer(value):
     return type(value) is int and value >= 0
 
 
-def current_estimate(result, now_ms, local_boot_id):
+def current_estimate(result, now_ms, expected_clock_domain):
     """Fail closed on schema, clock, age or completeness errors at every use."""
     try:
+        if not isinstance(expected_clock_domain, str) or len(expected_clock_domain) != 64:
+            return "unknown"
         required = {"schema_version", "result_id", "zone_id", "estimate", "decision_reasons",
                     "evidence_validity", "domain_eligibility", "evidence_window", "age",
                     "valid_until", "provenance", "diagnostics", "last_known"}
@@ -32,9 +33,8 @@ def current_estimate(result, now_ms, local_boot_id):
         for key, fields in nested.items():
             if not isinstance(result[key], dict) or not fields.issubset(result[key]):
                 return "unknown"
-        expected = hashlib.sha256(("wifi-presence-clock/1:" + local_boot_id).encode()).hexdigest()
         provenance = result["provenance"]
-        if provenance["clock_domain"] != expected or provenance["time_basis"] != "CLOCK_BOOTTIME":
+        if provenance["clock_domain"] != expected_clock_domain or provenance["time_basis"] != "CLOCK_BOOTTIME":
             return "unknown"
         if result["evidence_validity"]["state"] != "valid" or result["domain_eligibility"]["state"] != "eligible":
             return "unknown"
@@ -57,7 +57,7 @@ def current_estimate(result, now_ms, local_boot_id):
             end, uncertainty = source["capture_end_ms"], source["uncertainty_ms"]
             if not integer(end) or not integer(uncertainty):
                 return "unknown"
-            if source["mapping_status"] != "verified-local-boot" or source["time_basis"] != "CLOCK_BOOTTIME":
+            if source["mapping_status"] != "verified-local-clock-domain" or source["time_basis"] != "CLOCK_BOOTTIME":
                 return "unknown"
             if end - now_ms > uncertainty or now_ms - end + uncertainty > age["maximum_ms"]:
                 return "unknown"

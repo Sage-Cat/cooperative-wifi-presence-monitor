@@ -11,6 +11,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <openssl/sha.h>
+#include <sched.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -22,6 +23,7 @@ using Json = nlohmann::json;
 namespace fs = std::filesystem;
 namespace {
 std::string executable;
+bool actual_namespace_check = false;
 void check(bool value, const char *message) {
   if (!value)
     throw std::runtime_error(message);
@@ -43,8 +45,7 @@ void write(const fs::path &path, const Json &value) {
   out << value.dump() << '\n';
   check(bool(out), "fixture write failed");
 }
-std::string hash(const fs::path &path) {
-  auto bytes = read(path);
+std::string digest(const std::string &bytes) {
   unsigned char digest[SHA256_DIGEST_LENGTH];
   SHA256(reinterpret_cast<const unsigned char *>(bytes.data()), bytes.size(),
          digest);
@@ -52,6 +53,25 @@ std::string hash(const fs::path &path) {
   for (auto byte : digest)
     out << std::hex << std::setw(2) << std::setfill('0') << unsigned(byte);
   return out.str();
+}
+std::string hash(const fs::path &path) { return digest(read(path)); }
+std::string clock_domain() {
+  auto boot = read("/proc/sys/kernel/random/boot_id");
+  while (!boot.empty() && (boot.back() == '\n' || boot.back() == '\r'))
+    boot.pop_back();
+  char identity[256];
+  const auto length = readlink("/proc/self/ns/time", identity, sizeof identity);
+  std::string time_namespace;
+  if (length < 0) {
+    if (errno != ENOENT)
+      throw std::runtime_error("time namespace identity unavailable");
+    time_namespace = "global";
+  } else {
+    check(static_cast<std::size_t>(length) < sizeof identity,
+          "time namespace identity too long");
+    time_namespace.assign(identity, static_cast<std::size_t>(length));
+  }
+  return digest("wifi-presence-clock/1:" + boot + ":" + time_namespace);
 }
 class Service {
 public:
@@ -204,7 +224,7 @@ public:
             {"sequence", sequence},
             {"capture_ms", capture < 0 ? now() : capture},
             {"uncertainty_ms", 0},
-            {"clock_boot_id", boot},
+            {"clock_domain", clock_domain()},
             {"pipeline_sha256", manifest.at("pipeline_sha256")},
             {"feature_names", {"synthetic_level"}},
             {"feature_units", {"unitless"}},
@@ -418,12 +438,117 @@ void startup_guards() {
           "integrity startup class");
   }
 }
+void clock_namespaces() {
+  Service service(1500);
+  const auto expected = clock_domain();
+  const auto wrong = digest("wifi-presence-clock/1:" + service.boot +
+                            ":different-time-namespace");
+  for (const auto &source : {"rx-a", "rx-b"})
+    for (std::uint64_t sequence = 1; sequence <= 2; ++sequence) {
+      auto frame = service.observation(source, sequence);
+      frame["clock_domain"] = wrong;
+      service.send(frame);
+    }
+  service.wait([](const Json &value) {
+    return value.at("diagnostics").at("rejected_candidates").get<int>() >= 4;
+  });
+  check(service.result().at("estimate") == "unknown",
+        "wrong namespace inferred");
+  auto legacy = service.observation("rx-a", 1);
+  legacy.erase("clock_domain");
+  legacy["clock_boot_id"] = service.boot;
+  service.send(legacy);
+  service.wait([](const Json &value) {
+    return value.at("diagnostics").at("rejected_candidates").get<int>() >= 5;
+  });
+  if (actual_namespace_check) {
+    int descriptors[2];
+    check(pipe2(descriptors, O_CLOEXEC) == 0, "namespace result pipe failed");
+    const auto child = fork();
+    check(child >= 0, "namespace child failed");
+    if (child == 0) {
+      close(descriptors[0]);
+      if (unshare(CLONE_NEWTIME) != 0) {
+        const int code = errno;
+        const std::string status = (code == EPERM || code == EACCES ||
+                                    code == EINVAL || code == ENOSYS)
+                                       ? "SKIP"
+                                       : "ERROR";
+        const auto ignored =
+            ::write(descriptors[1], status.data(), status.size());
+        (void)ignored;
+        _exit(0);
+      }
+      const auto producer = fork();
+      if (producer == 0) {
+        try {
+          const auto token = clock_domain();
+          const auto n = ::write(descriptors[1], token.data(), token.size());
+          _exit(n == static_cast<ssize_t>(token.size()) ? 0 : 1);
+        } catch (...) {
+          _exit(1);
+        }
+      }
+      if (producer < 0)
+        _exit(1);
+      close(descriptors[1]);
+      int status = 0;
+      waitpid(producer, &status, 0);
+      _exit(WIFEXITED(status) ? WEXITSTATUS(status) : 1);
+    }
+    close(descriptors[1]);
+    char buffer[128];
+    std::string token;
+    for (;;) {
+      const auto n = ::read(descriptors[0], buffer, sizeof buffer);
+      if (n < 0 && errno == EINTR)
+        continue;
+      check(n >= 0, "namespace token read failed");
+      if (n == 0)
+        break;
+      token.append(buffer, static_cast<std::size_t>(n));
+    }
+    close(descriptors[0]);
+    int status = 0;
+    waitpid(child, &status, 0);
+    check(WIFEXITED(status) && WEXITSTATUS(status) == 0,
+          "namespace child failed");
+    if (token == "SKIP")
+      std::cout << "SKIP actual time namespace: unavailable or not permitted"
+                << std::endl;
+    else {
+      check(token.size() == 64 && token != expected,
+            "actual namespace identity was not distinguished");
+      auto frame = service.observation("rx-a", 1);
+      frame["clock_domain"] = token;
+      service.send(frame);
+      service.wait([](const Json &value) {
+        return value.at("diagnostics").at("rejected_candidates").get<int>() >=
+               6;
+      });
+      check(service.result().at("estimate") == "unknown",
+            "actual namespace inferred");
+      std::cout << "PASS actual child time namespace rejected on same boot"
+                << std::endl;
+    }
+  } else
+    std::cout << "SKIP actual time namespace: guest-only check disabled"
+              << std::endl;
+  service.window();
+  const auto result = service.wait(
+      [](const Json &value) { return value.at("estimate") == "present"; });
+  check(result.at("provenance").at("clock_domain") == expected,
+        "published clock domain mismatch");
+}
 } // namespace
 int main(int argc, char **argv) {
-  if (argc != 2) {
-    std::cerr << "usage: presence-service-tests /absolute/monitor\n";
+  if (argc != 2 &&
+      !(argc == 3 && std::string(argv[2]) == "--check-time-namespace")) {
+    std::cerr << "usage: presence-service-tests /absolute/monitor "
+                 "[--check-time-namespace]\n";
     return 2;
   }
+  actual_namespace_check = argc == 3;
   executable = fs::absolute(argv[1]);
   const std::pair<const char *, void (*)()> cases[] = {
       {"classes, abstention, synthetic provenance", classes},
@@ -432,7 +557,8 @@ int main(int argc, char **argv) {
       {"domain and epoch/feature invalidation", invalidation},
       {"input flood timers and atomic readers", flood_atomicity},
       {"overlapping writer and clean restart", restart_and_writer},
-      {"opt-in and artifact integrity guards", startup_guards}};
+      {"opt-in and artifact integrity guards", startup_guards},
+      {"time namespace token and legacy field rejection", clock_namespaces}};
   int failures = 0;
   for (const auto &test : cases) {
     try {
@@ -443,7 +569,7 @@ int main(int argc, char **argv) {
       std::cout << "FAIL " << test.first << ": " << error.what() << std::endl;
     }
   }
-  std::cout << "SERVICE TESTS: " << (7 - failures) << " passed, " << failures
+  std::cout << "SERVICE TESTS: " << (8 - failures) << " passed, " << failures
             << " failed" << std::endl;
   return failures ? 1 : 0;
 }

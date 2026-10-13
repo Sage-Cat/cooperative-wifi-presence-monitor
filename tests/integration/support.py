@@ -18,6 +18,16 @@ def boottime_ms():
     return int(time.clock_gettime(time.CLOCK_BOOTTIME) * 1000)
 
 
+def clock_domain(namespace_identity=None):
+    boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    if namespace_identity is None:
+        try:
+            namespace_identity = os.readlink("/proc/self/ns/time")
+        except FileNotFoundError:
+            namespace_identity = "global"
+    return hashlib.sha256(("wifi-presence-clock/1:" + boot + ":" + namespace_identity).encode()).hexdigest()
+
+
 def bundle(root, sources=("rx-a", "rx-b"), max_age_ms=700, samples=2):
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -65,7 +75,7 @@ def observation(manifest, source="rx-a", sequence=1, value=1.0, capture_ms=None,
         "boot_epoch": "synthetic-boot-1", "config_epoch": "synthetic-config-1",
         "sequence": sequence, "capture_ms": boottime_ms() if capture_ms is None else capture_ms,
         "uncertainty_ms": 0,
-        "clock_boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+        "clock_domain": clock_domain(),
         "pipeline_sha256": manifest["pipeline_sha256"],
         "feature_names": ["synthetic_level"], "feature_units": ["unitless"],
         "features": [value], "metadata": {"scenario": "synthetic"},

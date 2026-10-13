@@ -162,12 +162,7 @@ int main(int argc, char **argv) {
       std::cerr << "configuration_invalid\n";
       return 2;
     }
-    auto boot = presence::read_regular("/proc/sys/kernel/random/boot_id", 128);
-    while (!boot.empty() && (boot.back() == '\n' || boot.back() == '\r'))
-      boot.pop_back();
-    if (boot.empty())
-      throw std::runtime_error("local_clock_identity_unavailable");
-    config.clock_domain = presence::digest("wifi-presence-clock/1:" + boot);
+    config.clock_domain = presence::local_clock_domain();
     const auto &bundle = *loaded;
     presence::PresenceMonitor monitor(bundle.contract, runtime);
     std::uint64_t serial = 2;
@@ -266,7 +261,7 @@ int main(int argc, char **argv) {
             if (!discarding) {
               std::optional<presence::Observation> observation;
               try {
-                observation = presence::decode(line, boot);
+                observation = presence::decode(line, config.clock_domain);
               } catch (const std::exception &) {
               }
               if (observation)

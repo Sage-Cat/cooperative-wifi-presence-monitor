@@ -11,7 +11,7 @@ import threading
 import time
 import unittest
 
-from support import boottime_ms, bundle, config, observation, sha256, write_json
+from support import boottime_ms, bundle, clock_domain, config, observation, sha256, write_json
 from consumer_contract import current_estimate
 
 MONITOR = Path(sys.argv.pop(1)).resolve()
@@ -141,7 +141,7 @@ class ServiceAcceptance(unittest.TestCase):
                         {"capture_ms": -1}, {"uncertainty_ms": 0.5},
                         {"features": [float("nan")]}, {"features": [float("inf")]},
                         {"features": [True]}, {"integrity": "true"},
-                        {"clock_boot_id": "not-the-local-clock"},
+                        {"clock_domain": "0" * 64},
                         {"pipeline_sha256": "0" * 64}):
             service.send(observation(service.manifest, **updates))
         time.sleep(0.1)
@@ -251,28 +251,45 @@ class ServiceAcceptance(unittest.TestCase):
         service = self.service(age=1500)
         service.window()
         result = service.wait(lambda result: result["estimate"] == "present")
-        boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        trusted_clock = clock_domain()
         deadline = result["valid_until"]
-        self.assertEqual(current_estimate(result, boottime_ms(), boot), "present")
-        self.assertEqual(current_estimate(result, deadline, boot), "present")
-        self.assertEqual(current_estimate(result, deadline + 1, boot), "unknown")
-        self.assertEqual(current_estimate(result, boottime_ms(), "different-local-boot"), "unknown")
+        self.assertEqual(current_estimate(result, boottime_ms(), trusted_clock), "present")
+        self.assertEqual(current_estimate(result, deadline, trusted_clock), "present")
+        self.assertEqual(current_estimate(result, deadline + 1, trusted_clock), "unknown")
+        self.assertEqual(current_estimate(result, boottime_ms(), clock_domain("different-time-namespace")), "unknown")
         for field in result:
             incomplete = copy.deepcopy(result)
             del incomplete[field]
-            self.assertEqual(current_estimate(incomplete, boottime_ms(), boot), "unknown", field)
+            self.assertEqual(current_estimate(incomplete, boottime_ms(), trusted_clock), "unknown", field)
         for parent in ("age", "evidence_validity", "domain_eligibility", "provenance", "diagnostics"):
             for field in result[parent]:
                 incomplete = copy.deepcopy(result)
                 del incomplete[parent][field]
-                self.assertEqual(current_estimate(incomplete, boottime_ms(), boot), "unknown", parent + "." + field)
+                self.assertEqual(current_estimate(incomplete, boottime_ms(), trusted_clock), "unknown", parent + "." + field)
         for field in result["evidence_window"][0]:
             incomplete = copy.deepcopy(result)
             del incomplete["evidence_window"][0][field]
-            self.assertEqual(current_estimate(incomplete, boottime_ms(), boot), "unknown", "source." + field)
+            self.assertEqual(current_estimate(incomplete, boottime_ms(), trusted_clock), "unknown", "source." + field)
         unsupported = copy.deepcopy(result)
         unsupported["schema_version"] = "wifi-presence-result/99"
-        self.assertEqual(current_estimate(unsupported, boottime_ms(), boot), "unknown")
+        self.assertEqual(current_estimate(unsupported, boottime_ms(), trusted_clock), "unknown")
+
+    def test_wrong_time_namespace_and_legacy_raw_boot_field_rejected(self):
+        service = self.service(age=1500)
+        # Same local boot identity, independently supplied different namespace identity.
+        wrong_domain = clock_domain("different-time-namespace")
+        service.window(clock_domain=wrong_domain)
+        rejected = service.wait(lambda result: result["diagnostics"]["rejected_candidates"] >= 4)
+        self.assertEqual(rejected["estimate"], "unknown")
+        old_record = observation(service.manifest)
+        del old_record["clock_domain"]
+        old_record["clock_boot_id"] = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        service.send(old_record)
+        service.wait(lambda result: result["diagnostics"]["rejected_candidates"] >= 5)
+        self.assertEqual(service.read()["estimate"], "unknown")
+        service.window()
+        accepted = service.wait(lambda result: result["estimate"] == "present")
+        self.assertEqual(accepted["provenance"]["clock_domain"], clock_domain())
 
     def test_pinned_bundle_integrity_semantics_and_integer_contracts(self):
         cases = [

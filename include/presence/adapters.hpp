@@ -18,13 +18,14 @@ struct Bundle {
 Json parse_json(const std::string &);
 Config load_config(const std::string &);
 Bundle load_bundle(const Config &, bool allow_synthetic);
-Observation decode(const std::string &, const std::string &boot_id);
+Observation decode(const std::string &, const std::string &clock_domain);
 Outcome infer(const Job &, const Bundle &);
 Json encode(const PresenceMonitor &, const Config &, const Bundle *, Time,
             std::uint64_t);
 std::string read_regular(const std::string &, std::size_t limit = 1048576);
 void check_absolute(const std::string &);
 std::string digest(const std::string &);
+std::string local_clock_domain();
 class AtomicWriter {
 public:
   explicit AtomicWriter(const std::string &, const std::string &runtime);

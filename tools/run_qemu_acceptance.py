@@ -105,7 +105,7 @@ echo "Presence monitor - installed service acceptance"
 echo "Synthetic software checks; networking disabled"
 uname -srm
 echo
-/opt/bin/presence-service-tests /opt/bin/wifi-presence-monitor > /run/acceptance.log 2>&1 || status=1
+/opt/bin/presence-service-tests /opt/bin/wifi-presence-monitor --check-time-namespace > /run/acceptance.log 2>&1 || status=1
 cat /run/acceptance.log
 cat /run/acceptance.log > /dev/ttyS0
 echo "GUEST_TEST_EXIT_CODE=$status"

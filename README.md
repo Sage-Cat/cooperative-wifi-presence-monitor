@@ -43,6 +43,41 @@ independently eligible earlier estimate. Known relevant invalidation, accepted
 abstention and expiry withdraw the class. Candidate diagnostics and optional
 last-known history remain distinct from current evidence in the same record.
 
+## Architecture gallery
+
+Click a diagram for its full-size SVG. Each view links to its editable PlantUML
+source; the [diagram catalogue](docs/diagrams/README.md) includes deployment,
+data objects, startup and recovery views.
+
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <strong>Users and use cases</strong><br>
+      <a href="docs/diagrams/use_cases.svg"><img src="docs/diagrams/use_cases.svg" width="100%" alt="Operator, integrator, observation source and consuming application use cases"></a><br>
+      <a href="docs/diagrams/use_cases.puml">PlantUML source</a> · <a href="docs/use-cases.md">Use cases</a>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <strong>Clean Architecture dependencies</strong><br>
+      <a href="docs/diagrams/dependencies.svg"><img src="docs/diagrams/dependencies.svg" width="100%" alt="Source dependencies from the Linux composition root and adapters inward to application and domain"></a><br>
+      <a href="docs/diagrams/dependencies.puml">PlantUML source</a> · <a href="docs/architecture.md">Architecture</a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <strong>Runtime pipeline</strong><br>
+      <a href="docs/diagrams/components.svg"><img src="docs/diagrams/components.svg" width="100%" alt="Normalized observations flow through the bounded Linux runner, coordinator and worker to atomic JSON publication"></a><br>
+      <a href="docs/diagrams/components.puml">PlantUML source</a> · <a href="docs/implementation.md">Implementation</a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <strong>Current-result lifecycle</strong><br>
+      <a href="docs/diagrams/result_state.svg"><img src="docs/diagrams/result_state.svg" width="100%" alt="Transitions between unknown and eligible present or absent estimates, including expiry and invalidation"></a><br>
+      <a href="docs/diagrams/result_state.puml">PlantUML source</a> · <a href="docs/lifecycle.md">Lifecycle</a>
+    </td>
+  </tr>
+</table>
+
 ## Verification and evidence
 
 [Software acceptance evidence](docs/testing/README.md) documents native tests,
@@ -52,6 +87,24 @@ inputs and no network device; genuine VGA console captures and derived results
 are retained with exact artifact hashes. These are software checks, not physical
 sensing studies. Linux x86-64 is tested; OpenWrt and prplOS qualification is future
 work.
+
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <strong>QEMU: core checks — 5 groups passed</strong><br>
+      <a href="docs/testing/qemu-core.png"><img src="docs/testing/qemu-core.png" width="100%" alt="Real QEMU Linux VGA console showing five deterministic core test groups passed"></a>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <strong>QEMU: installed service — 8 groups passed</strong><br>
+      <a href="docs/testing/qemu-service.png"><img src="docs/testing/qemu-service.png" width="100%" alt="Real QEMU Linux VGA console showing eight service test groups passed, including an actual child time namespace check"></a>
+    </td>
+  </tr>
+</table>
+
+Click either genuine console capture for full resolution. The
+[checked-run report](docs/testing/software-acceptance-2026-10-13.md) and
+[numerical receipt](docs/testing/software-acceptance-2026-10-13.json) record the
+synthetic inputs, observed timings, checks and artifact hashes.
 
 ## Documentation
 

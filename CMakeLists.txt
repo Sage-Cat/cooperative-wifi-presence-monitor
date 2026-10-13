@@ -65,6 +65,6 @@ target_link_libraries(wifi-presence-monitor PRIVATE presence_adapters Threads::T
 configure_file(packaging/wifi-presence-monitor.service.in wifi-presence-monitor.service @ONLY)
 install(TARGETS wifi-presence-monitor RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES "${CMAKE_BINARY_DIR}/wifi-presence-monitor.service"
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system)
+  DESTINATION lib/systemd/system)
 install(FILES packaging/THIRD_PARTY_NOTICES.txt packaging/INSTALL_ALLOWLIST.txt
   packaging/OpenSSL-LICENSE.txt DESTINATION ${CMAKE_INSTALL_DATADIR}/cooperative-wifi-presence-monitor)

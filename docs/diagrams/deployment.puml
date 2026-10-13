@@ -10,15 +10,15 @@ top to bottom direction
 rectangle "Observation producer" as Producer
 node "Qualified host target\nLinux first; embedded later" as Host {
   folder "Read-only installation" {
-    artifact "Monitor executable\ncore + host adapter" as Executable
+    artifact "Monitor executable\ncore + concrete adapters" as Executable
   }
   folder "Operator-managed inputs" {
     artifact "Reviewed model\n+ feature bundle" as Bundle
-    artifact "Explicit configuration" as Config
+    artifact "Startup-only configuration" as Config
   }
-  component "Unprivileged monitor process\ncoordinator + worker + timer" as Process #DCEAF6
+  component "Unprivileged monitor process\nrunner + coordinator + worker + timer" as Process #DCEAF6
   folder "Volatile runtime directory" {
-    artifact "Atomic current-result JSON" as Result
+    artifact "One atomic current-result JSON\n+ separate diagnostics / optional history" as Result
   }
   component "Local consuming application" as Consumer
 }

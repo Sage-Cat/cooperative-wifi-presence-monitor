@@ -15,6 +15,7 @@ class NormalizedObservation {
   capture_time_mapping
   mapping_uncertainty
   declared_payload_schema
+  declared_operating_metadata
   integrity_parser_status
   immutable_payload_view
 }
@@ -23,7 +24,7 @@ class ObservationWindow {
   exact_sources
   capture_starts_ends
   missingness
-  bundle_generation
+  evidence_generation
 }
 
 class ModelBundle {
@@ -43,6 +44,7 @@ class EvidenceAssessment {
 }
 
 class InferenceCandidate {
+  runtime_session + job_id
   generation
   window_id
   model_output
@@ -54,6 +56,7 @@ class PresenceResult {
   evidence_and_domain_states
   age_and_expiry
   provenance
+  bounded_candidate_diagnostics
 }
 
 class HistoricalResult {
@@ -67,7 +70,7 @@ ObservationWindow "1" --> "0..*" EvidenceAssessment : assessed at named times
 ModelBundle "1" --> "0..*" ObservationWindow : declares compatible inputs
 EvidenceAssessment "1" --> "0..1" InferenceCandidate : permits inference
 ObservationWindow "1" --> "0..*" InferenceCandidate : candidate for
-ModelBundle "1" --> "0..*" InferenceCandidate : scores
+ModelBundle "1" --> "0..*" InferenceCandidate : identifies model contract
 InferenceCandidate "0..1" --> "0..1" PresenceResult : accepted as current
 EvidenceAssessment "1" --> "0..*" PresenceResult : validity and domain state
 PresenceResult "1" --> "0..1" HistoricalResult : optional prior estimate

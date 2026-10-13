@@ -6,28 +6,27 @@ skinparam backgroundColor white
 skinparam ArrowColor #334155
 skinparam componentStyle rectangle
 skinparam packageStyle rectangle
-skinparam PackageTitleAlignment left
 top to bottom direction
 rectangle "Observation producer" as Source
-rectangle "Host clock\nand timer" as Clock
-package "Presence Monitor" {
-  component "Source adapter" as Adapter
-  component "Window assembler" as Window
-  component "State coordinator" as Coordinator #DCEAF6
-  component "Evidence qualifier" as Qualifier
-  component "Feature + inference\nworker" as Worker
-  component "Atomic result\npublisher" as Publisher
+package "Outer Linux runtime" {
+ component "NDJSON decoder" as Decoder
+ component "Runner\nclock + bounded loop" as Runner #F1F5F9
+ component "One worker\ninference adapter" as Worker
+ component "Atomic JSON writer" as Writer
 }
-rectangle "Local consumer" as Consumer
-Source -right-> Adapter : declared local stream
-Adapter --> Window : normalized facts
-Window --> Coordinator : bounded candidate
-Clock --> Coordinator : explicit time / expiry events
-Coordinator <--> Qualifier : check / assessment + horizon
-Coordinator <--> Worker : immutable job / candidate
-
-Coordinator --> Publisher : approved current state
-Publisher --> Consumer : result + expiry + reasons
-Clock ..> Consumer : independent freshness check
-
+component "PresenceMonitor\ncoordinator + one pending window" as Monitor #DCEAF6
+component "Domain values + rules\nwindow, qualification, current-state policy" as Domain #E2F3E9
+rectangle "Local consumer\nindependent expiry check" as Consumer
+Source -right-> Decoder : one local stream
+Decoder --> Runner : normalized values
+Runner <--> Monitor : explicit time / facts / completion\nplain job / approved result
+Monitor --> Domain : pure calls
+Runner -> Worker : immutable job\none running job
+Worker --> Runner : outcome + job / generation IDs
+Runner --> Writer : approved result only
+Writer --> Consumer : one atomic JSON file
+legend bottom
+Runtime flow; boxes are responsibilities, not interfaces or services.
+Coordinator never calls the worker, clock or writer directly.
+endlegend
 @enduml

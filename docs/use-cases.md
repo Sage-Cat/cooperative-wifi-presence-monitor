@@ -5,16 +5,20 @@ monitor is a design specification; these interactions are not implemented.
 
 ![Use cases of the planned presence monitor](diagrams/use_cases.svg)
 
-The source adapter supplies observation windows while preserving timestamps,
-integrity and missingness. The integrator configures a model and profile that
-have been qualified for the declared input and operating envelope. The operator
+The source supplies normalized records through one configured local stream; the
+monitor assembles windows while preserving timestamps, integrity and
+missingness. The integrator configures a model and profile that have been
+qualified for the declared input and operating envelope. Changes require a
+controlled restart. The operator and consumer use the same local result record;
+no built-in UI, control API or separate health service is planned. The operator
 views the current zone-level `present`, `absent`, or `unknown` estimate and may
 inspect its freshness and reasons. A consuming application consumes the
 versioned result within its stated validity horizon; when the horizon expires
 or a required gate fails, the current result is `unknown`.
 
-The second diagram shows a separate, prospective application. Its dashed boundary distinguishes it from the presence monitor. It can review an
-anomaly only when a separate source has qualified that anomaly. In a future
+The second diagram shows a separate, prospective application. Its dashed
+boundary distinguishes it from the presence monitor. It can review an anomaly
+only when a separate source has qualified that anomaly. In a future
 application, an operator may confirm an assistance request for that application
 to send to an authorized recipient. Neither anomaly qualification nor request
 handling belongs to the presence-core contract. The core does not track

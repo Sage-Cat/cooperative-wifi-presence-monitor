@@ -17,13 +17,14 @@ private experiment directory may be needed to build or run a packaged release.
 
 ## Runtime state and network behavior
 
-The default runtime should keep transient state in memory and publish only the
-current result required by the configured local interface. Persistence and
-diagnostic logging are opt-in, bounded by size and retention, and directed to
-an operator-selected location outside the installation tree. Raw CSI and
-training data are not logged by default. The service has no telemetry, cloud
-dependency, remote reporting, or automatic source discovery. Adapters connect
-only to explicitly configured local inputs and outputs.
+Transient state stays in memory; one result file in a configured volatile local
+directory contains current state, separate bounded diagnostics and optional
+history. Persistent cache/history and remote reporting are excluded. Optional
+process diagnostic logging is bounded by size and retention and directed to an
+operator-selected location outside the installation tree. Raw CSI and training
+data are not logged by default. The service has no telemetry, cloud dependency,
+remote reporting, or automatic source discovery. Adapters connect only to
+explicitly configured local inputs and outputs.
 
 Use per-install opaque source and zone identifiers. Do not require MAC
 addresses, user identities, precise location, or a site name in the core
@@ -40,10 +41,13 @@ age. Operational logs and service status must preserve this distinction.
 
 ## Proposed process configuration
 
-The integrator explicitly supplies an input adapter/schema, local input stream,
-reviewed bundle/profile, and volatile runtime output directory. No source, model,
-site, user home or development path is guessed on startup. The installation tree
-is read-only; model/configuration files are separate operator-managed inputs.
+The integrator explicitly supplies the one declared input schema, local pipe,
+reviewed bundle/profile with an expected trusted manifest hash, and volatile
+runtime output directory. The model/profile is fixed at startup; changes
+require controlled stop/start. There is no live configuration or health socket.
+No source, model, site, user home or development path is guessed on startup.
+The installation tree is read-only; model/configuration files are separate
+operator-managed inputs.
 
 The initial service definition must disable persistent stdout/stderr capture by
 default. An operator may enable bounded diagnostics explicitly. Current-result

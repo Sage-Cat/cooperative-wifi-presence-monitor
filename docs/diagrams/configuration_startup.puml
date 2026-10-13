@@ -1,0 +1,39 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 13
+skinparam backgroundColor white
+skinparam ArrowColor #334155
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+autonumber
+actor "Integrator / service manager" as Manager
+participant "Old process" as Old
+participant "New Linux runner" as Host
+participant "Bundle adapter" as Bundle
+participant "PresenceMonitor" as Core
+participant "Atomic JSON writer" as Writer
+Manager -> Old : controlled stop; wait for process exit
+Old --> Manager : exited; no worker can publish
+note over Manager, Old
+If shutdown stalls, the service manager terminates
+and waits. Do not overlap result-file writers.
+end note
+Manager -> Host : start with explicit configuration
+Host -> Host : establish output, new opaque runtime session
+Host -> Writer : unknown / service_starting
+Host -> Bundle : verify approved manifest hash, artifacts,\nfeatures, class and operating contract
+alt valid bundle and profile
+ Bundle --> Host : frozen contract + loaded inference callable
+ Host -> Core : construct with plain immutable contract
+ Core --> Host : unknown; await new eligible observations
+else startup validation fails
+ Bundle --> Host : typed rejection reasons
+ Host -> Writer : unknown with startup reasons
+ Host --> Manager : startup failure
+end
+note over Host, Core
+No hot reload, old history restore or model search.
+In-process generation handles evidence invalidation separately.
+end note
+@enduml

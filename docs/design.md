@@ -1,58 +1,59 @@
 # Design overview
 
 This is a proposed software design for the Cooperative Wi-Fi Presence Monitor.
-It specifies behavior to implement and verify; diagrams are not execution or
-scientific-performance evidence. No executable or validated presence model is
-supplied.
+It specifies behavior to implement and verify. Diagrams do not establish runtime
+behavior or scientific performance. No executable or validated model is supplied.
 
 ## Practical goal
 
-Publish a current zone-level estimate only while a reviewed model and its
-observations support that use. Separate three questions: what class the model
-returns, whether the evidence is usable, and whether it is eligible for the
-declared operating conditions. `unknown` is a usable output when any required
-condition is unresolved or the model abstains.
+Publish one current zone-level estimate only while a reviewed model and supplied
+observations support that use. Keep model class, evidence validity and declared
+domain eligibility separate. `unknown` is a useful result when a condition is
+unresolved or the model abstains.
 
-The means consumes observations; acquisition and measurement policy remain with
-their existing owners. The operator can inspect the estimate, its age and reasons.
-The integrator supplies a reviewed model/profile and explicitly configured local
-interfaces. A consumer must respect the validity horizon rather than treating the
-last readable record as indefinitely current.
+The first version is one C++17 Linux process, one local normalized NDJSON input,
+one startup-selected frozen model/profile and one atomic local JSON output.
+An operator or local application inspects class, age and reasons through that
+record; there is no built-in UI or management API. Acquisition, training and
+measurement policy remain outside the means. Configuration changes use restart.
 
 ## Views
 
 | View | Main question | Document |
 |---|---|---|
-| Components | Who owns each processing step? | [Architecture](architecture.md), [diagram](diagrams/components.svg) |
-| Data | Which facts belong to observations, candidates, current and historical results? | [Data model](data-model.md), [diagram](diagrams/core_contract.svg) |
-| States | When may a categorical estimate persist or be withdrawn? | [Lifecycle](lifecycle.md), [diagram](diagrams/result_state.svg) |
-| Normal processing | What is checked before and after inference? | [Sequence](diagrams/observation_flow.svg) |
+| Source dependencies | Which code may depend on which boundary? | [Architecture](architecture.md#dependency-rule), [diagram](diagrams/dependencies.svg) |
+| Runtime flow | Who owns each processing step? | [Architecture](architecture.md#processing-responsibilities), [diagram](diagrams/components.svg) |
+| Data | Which facts belong to candidate, current and history? | [Data model](data-model.md), [diagram](diagrams/core_contract.svg) |
+| States | When may an estimate persist or be withdrawn? | [Lifecycle](lifecycle.md), [diagram](diagrams/result_state.svg) |
+| Processing | What is checked before and after inference? | [Sequence](diagrams/observation_flow.svg) |
 | Interrupted input | How do gaps, expiry and recovery differ? | [Sequence](diagrams/failure_recovery.svg) |
-| Reconfiguration | How are old-generation results excluded? | [Sequence](diagrams/model_reload.svg) |
-| Deployment | What is portable and what is platform-specific? | [Platforms](platforms.md), [diagram](diagrams/deployment.svg) |
+| Startup/restart | How is a new configuration activated? | [Sequence](diagrams/configuration_startup.svg) |
+| Deployment | What is portable or platform-specific? | [Platforms](platforms.md), [diagram](diagrams/deployment.svg) |
 | Users | What does each actor do? | [Use cases](use-cases.md) |
 
-All editable sources and rendering instructions are in the
-[PlantUML catalogue](diagrams/README.md).
+All editable sources are in the [PlantUML catalogue](diagrams/README.md).
 
 ## Design decisions
 
 | Decision | Choice and reason |
 |---|---|
-| Core boundary | A C++17 library receives typed events and immutable model/window data. OS, source transport and radio drivers stay outside it. |
-| Execution | One serialized state coordinator owns current state, generation and expiry. One inference worker processes immutable jobs so model computation does not own the expiry timer. |
-| Admission versus retention | Rejecting a new candidate does not automatically invalidate a previous eligible window. Retention is limited by that window's original deadline and applicability. |
-| Publication | The first Linux adapter reads an explicitly configured local newline-delimited stream and writes one atomic current-result JSON record into a configured volatile runtime directory. |
-| Cooperative processing | Only exact source subsets declared by the reviewed model may be combined, with a defensible common time basis. Node count alone is insufficient. |
-| Consumer responsibility | Every consumer verifies result schema and expiry independently. Missing or unbounded clock/transport mapping yields no current categorical estimate. |
-| Privacy and resources | Opaque IDs, no default persistent cache/log or telemetry, bounded windows, one running job and at most one pending latest eligible window. Capacity loss remains visible. |
-| Platform support | Linux first; OpenWrt and prplOS are separate build/package/permission/interface qualification tasks. A Linux build does not establish AP support. |
+| Clean Architecture | Plain domain values/rules; one concrete application coordinator; adapters and Linux composition root outside. Source dependencies point inward. |
+| Minimal abstractions | One inference behavior contract. Time, observations, jobs and results are plain values; other components are concrete. No interface per box. |
+| Execution | Serialized coordinator plus one worker keeps inference off the expiry loop. One running job and at most one pending latest window bound memory. |
+| Retention | Rejecting a candidate does not erase independently eligible earlier evidence. Its original horizon never changes. |
+| Publication | Exactly one atomic current JSON file with separate bounded diagnostics and optional history, in a configured volatile directory. |
+| Cooperative processing | Only exact model-supported source subsets and defensible capture-time alignment; node count alone is insufficient. |
+| Consumer | Same-host consumer verifies schema, its trusted common clock domain and expiry on every use. An unreadable/unmappable result is unknown. |
+| Scope | No hot reload, context input, remote delivery, plugin registry, database or separate health service. |
+| Privacy/platform | Opaque IDs, volatile defaults, no telemetry; Linux first. Embedded support requires separate qualification. |
 
-A model bundle must declare a presence task and the meaning of its classes.
-A motion-only negative label cannot be renamed `absent`. Stationary-presence
-coverage must be part of the reviewed task evidence before that interpretation
-is used. The service can validate the declaration and artifacts; it cannot
-certify the underlying scientific study automatically.
+Patterns and their reasons are documented in
+[architecture](architecture.md#patterns-kept-and-complexity-avoided). They are
+implementation tools, not additional product features.
+
+A bundle must declare a reviewed presence task, including stationary-presence
+scope before its negative class is interpreted as `absent`. The service checks
+artifacts/declarations; it cannot certify their scientific validity.
 
 ## Requirements and acceptance routes
 
@@ -63,27 +64,28 @@ All routes below are future checks, not completed software tests.
 | R1 | Preserve input integrity, gaps and capture provenance | Adapter/window contract cases |
 | R2 | Infer only with a compatible reviewed bundle and exact supported subset | Bundle, feature and subset cases |
 | R3 | Keep evidence validity, domain eligibility and model output separate | Decision and result-schema cases |
-| R4 | Never refresh age from receipt, inference completion or repeated publication | Clock, expiry and consumer cases |
-| R5 | Keep expiry responsive and reject stale-generation inference completions | Delayed-worker and reload cases |
-| R6 | Preserve an eligible old result only until its original horizon | Gap/dropout/recovery cases |
-| R7 | Remain read-only, bounded and independent of a development checkout | Host-adapter and clean-install cases |
-| R8 | Make no automatic person-count, distress or assistance decision | Boundary review and consumer contract cases |
+| R4 | Never refresh age from arrival, completion or repeated publication | Clock, expiry and consumer cases |
+| R5 | Keep expiry responsive and reject stale/duplicate job completions | Delayed-worker and invalidation cases |
+| R6 | Retain an eligible earlier result only until its original horizon | Gap/dropout/recovery cases |
+| R7 | Remain read-only, bounded and independent of a development checkout | Service and clean-install cases |
+| R8 | Make no person-count, distress or assistance decision | Boundary review and consumer contract cases |
+| R9 | Keep inner code independent of platform/backend/serialization types | Core build and dependency review |
 
-See [verification](verification.md) for concrete scenarios and the limits of
-software conformance. Physical presence accuracy and environmental transfer
-require separate studies.
+See [verification](verification.md) for scenarios. The
+[five-cause decision table](lifecycle.md#five-causes-of-lost-observational-support)
+connects the practical behavior to the observation-support problem. Physical
+accuracy, environmental transfer and operational suitability need separate studies.
 
 ## Inputs to resolve before implementation
 
-The behavior is specified, but deployment-specific facts must not be invented:
-
-- Select and review an actual presence model, feature pipeline and inference
-  backend, including stationary-presence evidence and exact supported subsets.
-- Freeze the normalized input encoding, result schema and canonical hash rules
-  before any producer/consumer depends on them.
-- Set window, missingness, alignment, expiry and resource limits from the
-  reviewed model and intended evaluation; no numeric defaults are justified here.
-- Name the first Linux architecture/toolchain and observation interface, then
-  qualify any embedded SDK/image and packaging separately.
-- Establish clock/transport bounds for the chosen consumer. If they cannot be
-  bounded, that route cannot carry a current categorical estimate.
+- Select and review one actual presence model/pipeline/backend, including
+  stationary-presence evidence and exact supported subsets.
+- Freeze the one normalized input encoding, result schema and canonical hash
+  rules before producers/consumers depend on them. No legacy auto-detection.
+- Derive window, missingness, alignment, age and resource limits from that model
+  and intended evaluation; no numerical defaults are justified by this design.
+- Name the first Linux architecture/toolchain and producer interface. Embedded
+  SDK/image and packaging qualification follow separately.
+- Establish source-to-host capture mappings and same-host consumer clock trust.
+  Linux expiry uses a clock including suspend time; a process restart never
+  resets evidence age or restores a prior categorical result.

@@ -8,9 +8,9 @@ actor Integrator
 actor "Observation source" as Source
 actor "Consuming application" as Consumer
 
-rectangle "Wi-Fi Presence Monitor\n(core contract)" as Core {
-  usecase "Supply observation\nwindows" as UC_Source
-  usecase "Configure qualified\nmodel and profile" as UC_Config
+rectangle "Wi-Fi Presence Monitor\n(one local result record)" as Core {
+  usecase "Supply normalized\nobservations" as UC_Source
+  usecase "Set startup model/profile\nand restart service" as UC_Config
   usecase "View current\nzone estimate" as UC_View
   usecase "Inspect freshness\nand reasons" as UC_Inspect
   usecase "Consume result within\nvalidity horizon" as UC_Consume

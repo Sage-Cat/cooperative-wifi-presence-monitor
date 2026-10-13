@@ -7,37 +7,38 @@ skinparam ArrowColor #334155
 skinparam componentStyle rectangle
 skinparam packageStyle rectangle
 autonumber
-participant "Observation source" as Source
-participant "Source adapter" as Adapter
-participant "Coordinator +\nwindow assembler" as Core
-participant "Evidence qualifier" as Qualifier
-participant "Inference worker" as Worker
-participant "Result publisher" as Publisher
-Source -> Adapter : declared observation envelope
-Adapter -> Core : normalized facts + capture mapping
-Core -> Core : assemble bounded generation-specific window
-Core -> Qualifier : assess candidate(window, bundle, now)
-Qualifier --> Core : eligibility + reasons + original deadline
-alt required condition unresolved or failed
-  Core -> Core : reject candidate; diagnose reasons
-  Core -> Publisher : retain eligible current only to original deadline;\notherwise current unknown
+participant "NDJSON decoder" as Adapter
+participant "Linux runner\nclock + worker handoff" as Host
+participant "PresenceMonitor" as Core
+participant "Pure domain rules" as Rules
+participant "Worker +\ninference adapter" as Worker
+participant "Atomic JSON writer" as Writer
+Adapter -> Host : normalized facts with owned payload
+Host -> Core : observation(facts, explicit now)
+Core -> Core : bounded assembly; preserve exact input
+Core -> Rules : assess(window, frozen contract, now)
+Rules --> Core : gates + reasons + original deadline
+alt candidate rejected
+ Core --> Host : prior result if independently eligible,\notherwise unknown; separate diagnostics
+ Host -> Writer : replace complete result record
 else candidate eligible
-  Core ->> Worker : immutable window + bundle + generation
-  Worker -> Worker : frozen features and model
-  Worker -->> Core : candidate class / abstention + generation
-  alt completion from old generation
-    Core -> Core : discard completion; preserve current decision
-  else generation current
-    Core -> Qualifier : recheck known invalidations and\ncapture age at publication time
-    Qualifier --> Core : current applicability + freshness
-    alt all current gates pass and model class accepted
-      Core -> Publisher : publish class + original capture horizon
-    else model abstains with qualified fresh evidence
-      Core -> Publisher : publish unknown; model_abstained
-    else candidate no longer eligible
-      Core -> Publisher : retain independently eligible current\nor publish unknown; never refresh old age
-    end
-  end
+ Core --> Host : immutable job + ID + generation
+ Host ->> Worker : dispatch to free running slot
+ Worker -> Worker : frozen features and model
+ Worker -->> Host : class / abstention / failure + IDs
+ Host -> Core : completion(outcome, new now)
+ alt obsolete / unexpected / duplicate completion
+  Core --> Host : discard; bounded diagnostic
+ else submitted current-generation job
+  Core -> Rules : recheck applicability + capture age
+  Rules --> Core : current assessment
+  Core -> Core : accept class / abstain / reject;\nnever refresh old evidence horizon
+  Core --> Host : approved current result + separate diagnostics
+  Host -> Writer : replace complete result record
+ end
 end
-
+note over Host, Worker
+Runner handles timers while inference executes.
+Only the coordinator changes current-state semantics.
+end note
 @enduml

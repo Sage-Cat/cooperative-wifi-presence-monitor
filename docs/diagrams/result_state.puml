@@ -21,5 +21,5 @@ Eligible : repeated publication: original horizon unchanged
 [*] --> Unknown : startup
 Unknown --> Present : qualified current generation\naccepted present; fresh
 Unknown --> Absent : qualified current generation\naccepted absent; fresh
-Eligible --> Unknown : expired / known invalidation\nreload / accepted abstention
+Eligible --> Unknown : expired / known invalidation\nrestart / accepted abstention
 @enduml

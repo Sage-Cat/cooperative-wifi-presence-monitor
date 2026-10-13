@@ -4,35 +4,32 @@ skinparam defaultFontName DejaVu Sans
 skinparam defaultFontSize 13
 skinparam backgroundColor white
 skinparam ArrowColor #334155
-skinparam componentStyle rectangle
-skinparam packageStyle rectangle
 autonumber
-participant "Observation source" as Source
-participant "Coordinator" as Core
-participant "Timer" as Timer
-participant "Result publisher" as Publisher
-participant "Consumer" as Consumer
-Source -> Core : complete compatible window
-Core -> Publisher : accepted class + original valid_until
-Publisher --> Consumer : current record
-Consumer -> Consumer : verify clock domain and capture-based age
-Source -> Core : later gap / receiver dropout
-Core -> Core : diagnose new-input failure;\nprior window not retroactively changed
-Consumer -> Consumer : retain only while original window eligible\nand now <= valid_until
-alt publisher processes expiry
-  Timer -> Core : now > original valid_until
-  Core -> Publisher : current unknown; evidence_expired\nlast_known remains historical
-  Publisher --> Consumer : unknown current record
+participant "Source decoder" as Source
+participant "Linux runner\nclock + worker handoff" as Host
+participant "PresenceMonitor" as Core
+participant "Atomic JSON writer" as Writer
+participant "Local consumer" as Consumer
+Source -> Host : complete compatible observations
+Host -> Core : facts, job completion, explicit time
+Core --> Host : accepted result + original valid_until
+Host -> Writer : atomic replacement
+Writer --> Consumer : current record
+Consumer -> Consumer : verify clock domain and capture age
+Source -> Host : later gap / receiver dropout
+Host -> Core : new-input failure facts
+Core --> Host : retain independently eligible prior;\nseparate bounded diagnostics; same deadline
+Host -> Writer : atomic replacement
+alt runner processes expiry
+ Host -> Core : timer now > original valid_until
+ Core --> Host : unknown / evidence_expired;\nlast_known is history
+ Host -> Writer : atomic replacement
+ Writer --> Consumer : unknown current record
 else publisher unavailable or stalled
-  Consumer -> Consumer : own clock/expiry check fails
-  Consumer -> Consumer : current unknown even if old file readable
+ Consumer -> Consumer : own expiry check fails;\nunknown even if old file readable
 end
-Source -> Core : new window with established epochs / mapping
-Core -> Core : qualify exact subset and bundle; infer;\nrecheck at publication
-alt new candidate accepted
-  Core -> Publisher : replacement estimate + new capture horizon
-else no eligible accepted replacement
-  Core -> Publisher : current unknown
-end
-
+Source -> Host : new evidence with epochs / time mapping
+Host -> Core : facts, qualified-job outcome, explicit time
+Core --> Host : accepted new result or unknown;\nnew horizon only from new capture
+Host -> Writer : atomic replacement
 @enduml

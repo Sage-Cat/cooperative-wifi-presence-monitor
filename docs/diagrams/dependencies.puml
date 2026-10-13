@@ -1,0 +1,26 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 13
+skinparam backgroundColor white
+skinparam ArrowColor #334155
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+top to bottom direction
+rectangle "Linux composition root\nmain, clock, I/O and bounded worker" as Root #F1F5F9
+rectangle "Concrete adapters\nNDJSON decoder | inference backend | atomic JSON writer" as Adapters #E6F0FA
+rectangle "Application\nPresenceMonitor + plain job/outcome contracts\nOwns the inference callable contract" as Application #DCEAF6
+rectangle "Domain\nPlain values + pure evidence, time and state rules" as Domain #E2F3E9
+Root --> Adapters : wires and owns
+Root --> Application : calls with explicit values
+Adapters --> Application : uses / implements inner contracts
+Application --> Domain : applies rules
+note right of Domain
+No Linux, JSON, threads,
+backend handles or I/O.
+end note
+legend bottom
+Source dependencies point inward.
+Runtime data flow is a separate view.
+endlegend
+@enduml

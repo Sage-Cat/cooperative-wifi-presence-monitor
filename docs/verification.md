@@ -30,14 +30,16 @@ plans are separate from these software acceptance requirements.
   present/absent estimate. Invalid or missing evidence must not be silently
   dropped to make a source subset appear compatible.
 - Exercise capture-time freshness at just-inside, equal-to, and just-outside
-  configured limits, including clock mapping uncertainty. Assert age is based
+  configured limits, including clock mapping uncertainty. Equality remains
+  eligible under `A <= A_max`; greater age is expired. Assert age is based
   on capture end, not arrival. Missing capture-time mapping yields no positive
   validity horizon.
 - Exercise device reconnect, boot/config epoch change, source gaps, late
   arrival, clock reset, model reload, pipeline mismatch, and service restart.
-  Verify the current result becomes unknown until a new complete compatible
-  window is available, while any last-known result remains separate and retains
-  its original expiry.
+  Separate later-candidate failures from known invalidation of the current
+  window. Gaps/dropout may retain an independently eligible current estimate
+  only to its original expiry. Reload, restart, invalidating changes and expiry
+  withdraw it; last-known remains separate with its original window and expiry.
 - Test single-source and cooperative subsets against manifest declarations.
   Unsupported subsets, incompatible feature profiles, insufficient source
   count, or cross-source timing uncertainty above the declared tolerance must
@@ -78,3 +80,29 @@ allowlist, run without a development checkout, and verify that defaults create
 no persistent cache, log or identity mapping. Test optional logging limits and
 that configuration, inputs and outputs stay outside the installation tree.
 No telemetry or source-discovery connection may occur on startup.
+
+## Decision, concurrency and consumer scenarios
+
+The requirements in [the design overview](design.md#requirements-and-acceptance-routes)
+map to these planned acceptance cases. Use deterministic clocks and immutable
+fixtures for software checks, without treating those fixtures as physical evidence.
+
+| Case | Trigger | Required observable behavior |
+|---|---|---|
+| V1 / R1,R6 | Valid window, then gaps or dropout in later input | Current estimate survives only while independently eligible; rejected candidate has separate diagnostics; no deadline extension |
+| V2 / R2,R3 | Unsupported reduced subset or mismatched feature order | No inference on that candidate; no zero filling or hidden subset substitution |
+| V3 / R3 | Qualified window but model abstains | Current unknown with `model_abstained`; evidence validity may remain valid; no old-class fallback |
+| V4 / R4 | No new input or stream EOF through the age limit | Timer progresses; equality follows the declared boundary; expiry publishes unknown without waiting for another record |
+| V5 / R4 | Publisher stalls or exits leaving a result file | Consumer independently withdraws an expired or unmappable result |
+| V6 / R5 | Inference finishes after its window expired | Publication-time check rejects categorical output |
+| V7 / R5 | Reload/domain invalidation while a job is running | Immediate affected-state withdrawal; late old-generation completion cannot publish |
+| V8 / R5 | One running job and new eligible windows arrive | At most one pending latest window; skips are diagnosed; acquisition records are not silently removed from retained windows |
+| V9 / R1,R7 | Frame/window memory limit reached | Bounded allocation and explicit capacity/data-loss facts; no apparent complete capture |
+| V10 / R2,R3 | Motion-only model declares its negative class as absence | Bundle review/contract rejects the unsupported presence semantics |
+| V11 / R6 | Known relevant epoch/config/domain change | Current invalidation is immediate; restored packet flow alone does not restore eligibility |
+| V12 / R7,R8 | Clean installation and output consumption | No workspace dependency, telemetry, default persistent log/cache, control call or automatic assistance action |
+
+These cases do not prove stationary-person detection, unseen-room transfer,
+resilience to interference or operational safety. Such claims need a qualified
+model and separate physical studies. The C++ implementation, fixtures and tests
+remain to be created after design review.

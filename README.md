@@ -2,56 +2,58 @@
 
 **Software means — design specification** · `cooperative_wifi_presence_monitor`
 
-This repository specifies a portable, read-only software service for publishing
-a zone-level Wi-Fi presence estimate together with its validity, age, and
-evidence provenance. Its core consumes a normalized observation interface;
-platform and source adapters are optional boundaries. A proposed adapter for
-`cws-source-record/2` and optional read-only CWS context are examples, not
-dependencies. The service does not acquire radio data or control a radio,
-network, or measurement rate.
+This project specifies a portable, read-only service that publishes a current
+zone-level Wi-Fi presence estimate with its evidence validity, age and provenance.
+The estimate is `present`, `absent` or `unknown`. Missing, incompatible or expired
+evidence cannot be interpreted as absence.
 
-**Status: design only. There is no executable implementation, model artifact,
-experiment, deployment, or measured performance claim here.** The proposed
-implementation language is C++17. The portable decision core and external
-interfaces are described in `docs/`; implementation and installability remain
-future work.
+**Status: design only. No executable, trained model, installable package or
+experimental performance result is provided.** The proposed language is C++17;
+Linux is the first service target. OpenWrt and prplOS require separately qualified
+platform adapters and equipment. Implementation and evaluation are future work.
 
-## Bounded practical task
+Start with the [design overview](docs/design.md), including the decisions and
+items to resolve before implementation. The [PlantUML catalogue](docs/diagrams/README.md)
+contains editable sources and SVG views for architecture, data, result states,
+normal processing, interrupted input, model reload, deployment and user goals.
 
-The monitor turns a bounded window of compatible, integrity-checked CSI source
-records into one of three current states: `present`, `absent`, or `unknown`.
-Every result carries separate evidence-validity and domain-eligibility states,
-an age bound and expiration, and identifiers and hashes for the source,
-feature pipeline, model, and configuration. Invalid, stale, unsupported,
-incompatible, or insufficient evidence yields `unknown`; it must never be
-converted to `absent`. The last known estimate is retained as historical
-context and is not presented as the current state after expiry.
+## Planned behavior
 
-The intended use is an indoor cooperative Wi-Fi sensing setup. A future
-deployment could expose the result to a local application, but this design
-makes no claim about shelter, defense, medical, safety, or production-network
-performance. “Zone” is a configured sensing area, not a person identity or
-precise location.
+1. Receive versioned observations through an explicitly configured source adapter.
+2. Assemble bounded windows while preserving gaps, timestamps and source facts.
+3. Check evidence, exact source/model compatibility, declared domain eligibility
+   and capture-based freshness.
+4. Apply a frozen, reviewed feature pipeline and model to eligible windows.
+5. Recheck eligibility and age before atomically publishing a result.
 
-## Adapter boundaries
+A gap or receiver dropout after a complete window does not by itself erase that
+window's still-eligible estimate. It never extends its original expiry. Known
+invalidation, reload or expiry withdraws the current categorical estimate;
+last-known information remains separately identified history. The consumer also
+checks expiry so a stalled publisher cannot make old evidence current forever.
 
-Source adapters translate declared, versioned observation formats into the
-normalized core interface while preserving source facts and uncertainty. The
-proposed `cws-source-record/2` adapter is one optional integration. A CWS
-context adapter is also optional and cannot supply a presence class. Neither
-adapter or project checkout is a runtime requirement; an equivalent source can
-implement the normalized interface independently.
+## Boundaries
 
-Optional operational context remains distinct from sensing evidence. A context
-field is usable as a model input only when the frozen model contract explicitly
-declares its source and version. The service requires a frozen feature pipeline
-and model artifact before it can publish `present` or `absent`. This design
-does not claim a new scientific method or measured performance.
+The means does not collect CSI, train models, command measurement rates, or alter
+radio/network policy. Source and context adapters are optional; the proposed
+`cws-source-record/2` and CWS integrations are examples, not dependencies. A
+research workspace or private configuration is not a runtime requirement.
 
-`mean.toml` records the identity and practical contract. The documents in
-`docs/` specify architecture, interfaces, platforms, future verification, and
-a planned installation and privacy contract. No install command is available
-until an implementation exists.
+Outputs concern a configured zone, not a person's identity or exact position.
+`absent` is the reviewed model's negative class, not proof that nobody is there.
+Counting, fall detection, medical interpretation and SOS handling belong to
+separate prospective components. [Use cases](docs/use-cases.md) show that boundary.
 
-See [use cases and actors](docs/use-cases.md) for the operator, integrator,
-observation-source, and consuming-application interactions.
+## Design documents
+
+- [Architecture and component responsibilities](docs/architecture.md)
+- [Data objects and ownership](docs/data-model.md)
+- [Result lifecycle and failure decisions](docs/lifecycle.md)
+- [Input, model, time and output contracts](docs/interfaces.md)
+- [Platforms and deployment](docs/platforms.md)
+- [Installation and privacy](docs/installation.md)
+- [Future verification and acceptance scenarios](docs/verification.md)
+
+`mean.toml` records the practical contract. Runtime state is volatile by default;
+logging and persistence are separate bounded opt-ins. No telemetry, automatic
+source discovery, author configuration or site mapping is part of the package.

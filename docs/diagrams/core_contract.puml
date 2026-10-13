@@ -1,0 +1,74 @@
+@startuml
+hide methods
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam ArrowColor #334155
+
+class NormalizedObservation {
+  opaque source_id
+  sequence
+  session_epoch
+  config_epoch
+  capture_time_mapping
+  mapping_uncertainty
+  declared_payload_schema
+  integrity_parser_status
+  immutable_payload_view
+}
+
+class ObservationWindow {
+  exact_sources
+  capture_starts_ends
+  missingness
+  bundle_generation
+}
+
+class ModelBundle {
+  model_pipeline_hashes
+  supported_exact_subsets
+  feature_contract
+  reviewed_presence_semantics
+  domain_envelope_and_limits
+}
+
+class EvidenceAssessment {
+  evidence_validity + reasons
+  domain_eligibility + reasons
+  conservative_age
+  assessed_at
+  expiry
+}
+
+class InferenceCandidate {
+  generation
+  window_id
+  model_output
+}
+
+class PresenceResult {
+  current_estimate
+  decision_reasons
+  evidence_and_domain_states
+  age_and_expiry
+  provenance
+}
+
+class HistoricalResult {
+  original_class
+  original_window
+  original_expiry
+}
+
+ObservationWindow "0..*" o--> "1..*" NormalizedObservation : references
+ObservationWindow "1" --> "0..*" EvidenceAssessment : assessed at named times
+ModelBundle "1" --> "0..*" ObservationWindow : declares compatible inputs
+EvidenceAssessment "1" --> "0..1" InferenceCandidate : permits inference
+ObservationWindow "1" --> "0..*" InferenceCandidate : candidate for
+ModelBundle "1" --> "0..*" InferenceCandidate : scores
+InferenceCandidate "0..1" --> "0..1" PresenceResult : accepted as current
+EvidenceAssessment "1" --> "0..*" PresenceResult : validity and domain state
+PresenceResult "1" --> "0..1" HistoricalResult : optional prior estimate
+@enduml

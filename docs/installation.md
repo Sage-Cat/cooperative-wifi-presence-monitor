@@ -37,3 +37,17 @@ eligibility, or capture-time freshness checks. A missing or incompatible
 runtime asset, invalid timestamp mapping, or expired observation produces
 `unknown`; packaging defaults must not supply a class label or reset evidence
 age. Operational logs and service status must preserve this distinction.
+
+## Proposed process configuration
+
+The integrator explicitly supplies an input adapter/schema, local input stream,
+reviewed bundle/profile, and volatile runtime output directory. No source, model,
+site, user home or development path is guessed on startup. The installation tree
+is read-only; model/configuration files are separate operator-managed inputs.
+
+The initial service definition must disable persistent stdout/stderr capture by
+default. An operator may enable bounded diagnostics explicitly. Current-result
+publication is transient application output, not a history cache. At most one
+historical result is held in memory; it is not restored automatically after
+restart. A consumer must still expire a result if a crashed process leaves a
+readable file behind. No example contains a real source or zone mapping.

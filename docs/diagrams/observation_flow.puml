@@ -1,0 +1,43 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 13
+skinparam backgroundColor white
+skinparam ArrowColor #334155
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+autonumber
+participant "Observation source" as Source
+participant "Source adapter" as Adapter
+participant "Coordinator +\nwindow assembler" as Core
+participant "Evidence qualifier" as Qualifier
+participant "Inference worker" as Worker
+participant "Result publisher" as Publisher
+Source -> Adapter : declared observation envelope
+Adapter -> Core : normalized facts + capture mapping
+Core -> Core : assemble bounded generation-specific window
+Core -> Qualifier : assess candidate(window, bundle, now)
+Qualifier --> Core : eligibility + reasons + original deadline
+alt required condition unresolved or failed
+  Core -> Core : reject candidate; diagnose reasons
+  Core -> Publisher : retain eligible current only to original deadline;\notherwise current unknown
+else candidate eligible
+  Core ->> Worker : immutable window + bundle + generation
+  Worker -> Worker : frozen features and model
+  Worker -->> Core : candidate class / abstention + generation
+  alt completion from old generation
+    Core -> Core : discard completion; preserve current decision
+  else generation current
+    Core -> Qualifier : recheck known invalidations and\ncapture age at publication time
+    Qualifier --> Core : current applicability + freshness
+    alt all current gates pass and model class accepted
+      Core -> Publisher : publish class + original capture horizon
+    else model abstains with qualified fresh evidence
+      Core -> Publisher : publish unknown; model_abstained
+    else candidate no longer eligible
+      Core -> Publisher : retain independently eligible current\nor publish unknown; never refresh old age
+    end
+  end
+end
+
+@enduml

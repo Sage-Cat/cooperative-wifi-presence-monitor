@@ -1,0 +1,25 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 13
+skinparam backgroundColor white
+skinparam ArrowColor #334155
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+hide empty description
+left to right direction
+state "UNKNOWN" as Unknown #FFF1CC
+state "Eligible current estimate" as Eligible {
+  state "Estimated PRESENT" as Present #DCEAF6
+  state "Estimated ABSENT" as Absent #DCEAF6
+  Present --> Absent : accepted absent replacement
+  Absent --> Present : accepted present replacement
+}
+Eligible : rejected candidate: retain prior only while eligible
+Eligible : accepted replacement: use its capture horizon
+Eligible : repeated publication: original horizon unchanged
+[*] --> Unknown : startup
+Unknown --> Present : qualified current generation\naccepted present; fresh
+Unknown --> Absent : qualified current generation\naccepted absent; fresh
+Eligible --> Unknown : expired / known invalidation\nreload / accepted abstention
+@enduml

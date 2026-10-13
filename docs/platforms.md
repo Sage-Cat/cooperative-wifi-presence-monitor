@@ -45,3 +45,26 @@ support apply only after clean builds, packaging, and operation have been
 verified for named targets. A platform adapter cannot compensate for missing
 or unsuitable sensing data. Software conformance does not establish detection
 accuracy, transfer to another environment, privacy acceptability, or safety.
+
+## Planned host deployment
+
+![Local deployment boundary](diagrams/deployment.svg)
+
+The first process consists of a host event loop, the portable coordinator/window
+and qualification logic, one inference worker, and an atomic result publisher.
+The clock/timer and local stream/file I/O belong to the host adapter. The
+coordinator remains responsive to timer and invalidation events while a worker
+computes. This is a planned execution boundary, not measured timing behavior.
+
+A producer supplies an explicitly configured local stream. The reviewed model,
+profile and feature pipeline are read-only runtime inputs outside the package's
+compiled defaults. The current result and optional bounded diagnostics belong
+to an operator-configured volatile runtime directory. Consumers independently
+check the result's named clock domain and expiry. There is no network listener,
+remote discovery, cloud service or automatic control connection in this pilot.
+
+OpenWrt service/IPC and prplOS integration must preserve the same semantics.
+An AP-hosted deployment may need a separate source adapter; a standard service
+manager or IPC library does not create a CSI feed. Exact architecture, image,
+SDK, inference-backend dependencies and permissions must be recorded and tested
+before that platform is listed as supported.

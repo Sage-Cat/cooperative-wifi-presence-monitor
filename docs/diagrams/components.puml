@@ -1,0 +1,33 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 13
+skinparam backgroundColor white
+skinparam ArrowColor #334155
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam PackageTitleAlignment left
+top to bottom direction
+rectangle "Observation producer" as Source
+rectangle "Host clock\nand timer" as Clock
+package "Presence Monitor" {
+  component "Source adapter" as Adapter
+  component "Window assembler" as Window
+  component "State coordinator" as Coordinator #DCEAF6
+  component "Evidence qualifier" as Qualifier
+  component "Feature + inference\nworker" as Worker
+  component "Atomic result\npublisher" as Publisher
+}
+rectangle "Local consumer" as Consumer
+Source -right-> Adapter : declared local stream
+Adapter --> Window : normalized facts
+Window --> Coordinator : bounded candidate
+Clock --> Coordinator : explicit time / expiry events
+Coordinator <--> Qualifier : check / assessment + horizon
+Coordinator <--> Worker : immutable job / candidate
+
+Coordinator --> Publisher : approved current state
+Publisher --> Consumer : result + expiry + reasons
+Clock ..> Consumer : independent freshness check
+
+@enduml

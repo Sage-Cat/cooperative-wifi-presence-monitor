@@ -1,90 +1,92 @@
 # Architecture
 
-## System boundary
+The monitor is a read-only observation consumer and result publisher. It owns
+neither acquisition nor training data, reference labels, radio control or
+measurement policy. The design is proposed; no component is implemented.
 
-The monitor is a consumer and publisher. It reads normalized observation
-records through a declared source adapter and optional versioned operational
-context, evaluates a frozen sensing model, and emits a versioned result. It has
-no ownership of acquisition, test or training datasets, or controller state.
-It has no command path to an observation source or access
-point.
+![Planned components](diagrams/components.svg)
 
-```mermaid
-flowchart LR
-    source["Wi-Fi observation source"] -->|"declared source adapter; read-only"| monitor["Presence Monitor<br/>normalize → window → qualify → infer"]
-    context["Optional context provider"] -->|"versioned context adapter"| monitor
-    monitor -->|"wifi-presence-result/1 + health/status"| consumer["Local consumer"]
-```
+## Components and ownership
 
-Every source adapter declares its input schema, integrity checks, time basis,
-delivery guarantees, and treatment of gaps, duplication, reordering, and
-reconnects. A best-effort feed cannot claim complete delivery. Source-specific
-formats remain behind the adapter and are not required by the core.
+| Component | Responsibility | Must not do |
+|---|---|---|
+| Source adapter | Decode one declared source schema; preserve sequence/epoch, capture time, integrity and missingness facts | Invent missing metadata, command a radio or infer presence from transport status |
+| Window assembler | Build bounded source windows; account for gaps, duplicates, late records and discontinuities | Silently fill gaps, mix epochs or create an apparently compatible subset by dropping invalid sources |
+| Evidence qualifier | Assess window integrity, feature/subset compatibility, clock support, declared domain eligibility and freshness | Guarantee detection of unobserved environmental change |
+| State coordinator | Own current result, generation, invalidation and expiry; serialize all state transitions | Extend a window's horizon because input resumes or inference completes |
+| Inference worker | Apply the frozen feature pipeline and reviewed model to an immutable qualified window | Train/tune online, select undeclared subsets or publish directly |
+| Result publisher | Atomically serialize a coordinator-approved result and separate optional historical result | Substitute historical class for an unknown current class |
+| Host adapter | Own local I/O, a monotonic timer, service lifecycle and bounded diagnostics | Change core semantics, network policy or source authority |
 
-Operational context is optional. An adapter normalizes documented fields into
-a versioned view and reads them without mutation. Missing, stale, or malformed
-context is reported independently; it does not invalidate fresh sensing
-evidence unless the frozen profile explicitly requires that field.
+An optional context adapter supplies versioned operational facts. Missing context
+is independent of sensing validity unless the frozen profile explicitly requires
+that field. Network load is not a presence label. Source-specific formats and
+optional CWS integration remain behind adapters; the core is not tied to one
+collector, vendor API or project checkout.
 
-## Components
+## Event and execution model
 
-1. **Input adapters** parse a supported versioned source envelope and optional
-   context. They preserve opaque source identity, record ordering, timestamps,
-   parser status, and integrity facts. They are read-only.
-2. **Window assembler** builds the configured observation window per source.
-   It detects missing sequences, duplicates, late records, reconnects, boot or
-   configuration changes, and stale evidence. It does not repair or fabricate
-   source timestamps.
-3. **Evidence qualifier** emits a reason-coded state for data integrity,
-   temporal support, compatible feature coverage, and domain eligibility.
-   Each category is separate so a downstream reader can distinguish “no
-   positive estimate” from “not enough evidence to estimate.”
-4. **Portable inference core** applies a frozen feature transformation and
-   hash-verified model to qualified windows. It may combine nodes only when the
-   frozen model manifest explicitly supports that source subset and the
-   windows have a defensible shared time basis.
-5. **Result publisher** atomically publishes the current result and may retain
-   bounded history in memory. Persistent history is separately opt-in. It exposes current `unknown` independently from
-   the last-known historical result. It does not store raw CSI in its result
-   history.
-6. **Platform adapters** own file/IPC/socket access, service lifecycle, and
-   logging. They cannot change model semantics or turn invalid evidence into a
-   valid class.
+The host adapter feeds one serialized coordinator with observation, clock,
+source-discontinuity, context, domain-change, bundle-reload and worker-completion
+events. The portable core receives explicit time values rather than reading an
+OS clock itself. A host monotonic timer runs even when no records arrive.
 
-The portable core should be deterministic for a fixed input window, model
-bundle, and configuration. Configuration, model, and pipeline hashes are
-included with every result. A model or pipeline reload is an explicit state
-transition: the service first publishes `unknown` while it validates the new
-bundle, then starts a new evidence window under that bundle. It must not join
-windows scored by incompatible model versions.
+One inference worker receives an immutable window, bundle handle and generation.
+It cannot mutate current state. After completion, the coordinator verifies the
+window/bundle generation and all still-applicable conditions, then recomputes age
+using the publication-time clock. A result that became stale during computation
+is not published as current. These steps are shown in the
+[normal-processing sequence](diagrams/observation_flow.svg).
 
-## Presence and validity are distinct outputs
+A running inference job is not assumed cancellable. On invalidation or reload,
+the coordinator advances the generation and discards any later old-generation
+completion. One worker limits concurrency; one pending latest eligible window
+may replace an older pending window, with a skipped-window diagnostic. This
+scheduling choice does not remove samples from a retained window or relax its
+missingness limits. A hung worker leaves current state subject to normal expiry;
+software conformance provides no hard real-time or accuracy guarantee.
 
-The classifier's state is a three-valued estimate: `present`, `absent`, or
-`unknown`. The evidence-validity state is separately `valid`, `invalid`, or
-`unknown`; domain eligibility is `eligible`, `ineligible`, or `unknown`.
-`present` and `absent` are permitted only when evidence is valid, the configured
-domain checks pass, and the artifact declares a compatible feature/source
-combination. Otherwise the current estimate is `unknown`, accompanied by all
-applicable reason codes.
+Window sizes, maximum source count, frame size, bundle size and memory limits
+are explicit
+configuration checked against the bundle. Overflow is recorded as capacity/data
+loss, never disguised as an intact window. No unbounded replay queue, automatic
+source discovery or recovery by increasing measurement traffic is planned.
 
-This is a monitoring output, not a person count, identity, exact position,
-medical measurement, security alarm, or proof of occupancy. “Absent” means only
-that the frozen model returned its negative class for the stated zone and
-evidence window. It does not prove that nobody is there. A particular
-application must decide what action, if any, follows a result; that action is
-outside this mean.
+## Candidate and current result are different objects
 
-## Authority and failure behavior
+A candidate is a new window/model output awaiting acceptance. A current result
+is the last accepted estimate still eligible under its original evidence and
+expiry. A rejected candidate cannot refresh that result's timestamp or horizon.
+The current result may remain categorical after a gap/dropout only when its own
+conditions still hold. Candidate failures go to health/status diagnostics.
 
-Each source and context provider remains authoritative for its own records and
-control decisions. The presence monitor may apply stricter validity
-requirements for its model but may not weaken or rewrite source facts. It never
-requests a new sample rate to recover confidence. If a result is unknown, the
-publisher records why and waits for new, qualified evidence or a reviewed
-model/configuration change.
+Known changes that invalidate the current window's interpretation, an explicit
+reload, restart or expiry withdraw the current categorical result. Missingness
+in a later window alone is not such proof. Current `unknown` and historical
+`last_known` remain separate. See [lifecycle rules](lifecycle.md).
 
-Restart, broken input, clock discontinuity, model-hash mismatch, unsupported
-schema, adapter failure, or incompatible model/pipeline state leads to
-`unknown` until state is re-established. Last-known data remains historical
-with its original window and expiry; it is never copied into the current field.
+## Model and configuration lifecycle
+
+The reviewed bundle binds the model artifact, exact feature pipeline, class
+semantics, supported source subsets, time requirements and operating envelope.
+Hashes verify artifact identity, not scientific correctness. The task must cover
+stationary presence if its negative output is interpreted as `absent`.
+
+Reload first publishes `unknown`, advances the generation, and clears assembly
+state. The candidate bundle is validated before becoming active. Failure leaves
+the service unknown with explicit reasons; no automatic rollback or model search
+is planned. A successful reload needs new observations under the new generation.
+The [reload sequence](diagrams/model_reload.svg) makes the boundary explicit.
+
+## Output and consumer boundary
+
+The proposed `wifi-presence-result/1` record carries class, decision reasons,
+evidence/domain assessments, source window, capture-based age, expiry and
+model/pipeline/configuration provenance. Diagnostic health is separate from
+presence. The initial publisher writes a complete temporary record and atomically
+replaces the configured current-result file on the same filesystem.
+
+A consumer checks schema, clock mapping and expiry on every use, including when
+the file has not changed. Publisher/IPC failure is not a new observation. The
+consumer must withdraw an expired class independently of the process producing
+it. The service does not count people, locate them, detect falls or send SOS.

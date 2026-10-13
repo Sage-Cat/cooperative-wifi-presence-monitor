@@ -1,0 +1,38 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 13
+skinparam backgroundColor white
+skinparam ArrowColor #334155
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+autonumber
+participant "Observation source" as Source
+participant "Coordinator" as Core
+participant "Timer" as Timer
+participant "Result publisher" as Publisher
+participant "Consumer" as Consumer
+Source -> Core : complete compatible window
+Core -> Publisher : accepted class + original valid_until
+Publisher --> Consumer : current record
+Consumer -> Consumer : verify clock domain and capture-based age
+Source -> Core : later gap / receiver dropout
+Core -> Core : diagnose new-input failure;\nprior window not retroactively changed
+Consumer -> Consumer : retain only while original window eligible\nand now <= valid_until
+alt publisher processes expiry
+  Timer -> Core : now > original valid_until
+  Core -> Publisher : current unknown; evidence_expired\nlast_known remains historical
+  Publisher --> Consumer : unknown current record
+else publisher unavailable or stalled
+  Consumer -> Consumer : own clock/expiry check fails
+  Consumer -> Consumer : current unknown even if old file readable
+end
+Source -> Core : new window with established epochs / mapping
+Core -> Core : qualify exact subset and bundle; infer;\nrecheck at publication
+alt new candidate accepted
+  Core -> Publisher : replacement estimate + new capture horizon
+else no eligible accepted replacement
+  Core -> Publisher : current unknown
+end
+
+@enduml

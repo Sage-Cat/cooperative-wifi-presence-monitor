@@ -108,6 +108,7 @@ synthetic inputs, observed timings, checks and artifact hashes.
 
 ## Documentation
 
+- [Mean record, implemented components and maturity](mean/README.md)
 - [Architecture, patterns and dependency direction](docs/architecture.md)
 - [Implemented pipeline and its scope](docs/implementation.md)
 - [Versioned configuration/model/input/result contracts](docs/interfaces.md)

@@ -24,4 +24,5 @@ has been validated.
 
 ![Use cases of a separate prospective assistance application](diagrams/assistance_use_cases.svg)
 
-Render either source locally with `plantuml -nometadata -tsvg docs/diagrams/<name>.puml`.
+See the [local rendering instructions](diagrams/README.md#render-locally) for
+syntax checking and source-metadata-free SVG generation.

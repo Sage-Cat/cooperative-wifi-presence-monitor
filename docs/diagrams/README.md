@@ -22,11 +22,18 @@ linked design documents.
 From the repository root, with local PlantUML, Java and Graphviz installed:
 
 ```sh
-plantuml -checkonly docs/diagrams/*.puml
-plantuml -nometadata -tsvg docs/diagrams/*.puml
+plantuml --check-syntax docs/diagrams/*.puml
+for diagram_source in docs/diagrams/*.puml; do
+  plantuml --disable-metadata --svg --pipe < "$diagram_source" > "${diagram_source%.puml}.svg"
+done
 ```
 
-Use `-nometadata` so SVGs do not embed encoded source or working paths. No remote
+Use `--disable-metadata` so SVGs do not embed encoded source or working paths.
+These commands use the current PlantUML CLI; verify flags with local `--help-more`
+when using another version. Stop if the syntax check fails. Rendering one source
+per process avoids source-metadata leakage observed in batched file rendering.
+An exported SVG must contain no `plantuml-src`
+processing instruction or encoded `SRC=` comment. No remote
 rendering service or source upload is required. Inspect each changed SVG for
 readable labels, complete arrows and clipping before committing it. Do not put
 runtime records, deployment identifiers or private configuration in diagrams.

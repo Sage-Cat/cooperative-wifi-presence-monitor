@@ -40,3 +40,7 @@ config.local.*
 # Editor and platform noise
 .DS_Store
 Thumbs.db
+
+# Python test/tool caches
+__pycache__/
+*.py[cod]

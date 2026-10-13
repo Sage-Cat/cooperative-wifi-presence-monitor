@@ -62,6 +62,16 @@ target_link_libraries(presence_adapters PUBLIC presence_core presence_json PRIVA
 target_compile_definitions(presence_adapters PUBLIC PRESENCE_BUILD_ID="${PROJECT_VERSION}")
 add_executable(wifi-presence-monitor app/main.cpp)
 target_link_libraries(wifi-presence-monitor PRIVATE presence_adapters Threads::Threads)
+if(BUILD_TESTING)
+  find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  add_test(NAME presence_service COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/integration/test_service.py"
+    "$<TARGET_FILE:wifi-presence-monitor>")
+  add_executable(presence_service_tests tests/integration/service_guest.cpp)
+  target_link_libraries(presence_service_tests PRIVATE presence_json OpenSSL::Crypto Threads::Threads)
+  add_test(NAME presence_service_guest COMMAND presence_service_tests "$<TARGET_FILE:wifi-presence-monitor>")
+  set_tests_properties(presence_service presence_service_guest PROPERTIES TIMEOUT 90)
+endif()
 configure_file(packaging/wifi-presence-monitor.service.in wifi-presence-monitor.service @ONLY)
 install(TARGETS wifi-presence-monitor RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES "${CMAKE_BINARY_DIR}/wifi-presence-monitor.service"

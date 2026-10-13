@@ -1,8 +1,9 @@
-# Future implementation verification
+# Software acceptance requirements
 
-These are future software acceptance criteria, not completed checks, physical
-experiment requirements, or scientific evidence. Manuscripts and experiment
-plans are separate from these software acceptance requirements.
+These are software acceptance requirements. [Testing
+evidence](testing/README.md) records the concrete executed checks and their
+exact scope; not every possible platform or physical condition is covered.
+Manuscripts and physical experiments remain separate from software conformance.
 
 ## Contract and provenance checks
 
@@ -73,17 +74,18 @@ and human/operational review. No such evidence is part of this design.
 
 ## Installation boundary checks
 
-A future clean-install check must compare package members against the declared
+The clean-install check compares package members against the declared
 allowlist, run without a development checkout, and verify that defaults create
 no persistent cache, log or identity mapping. Test optional logging limits and
-that configuration, inputs and outputs stay outside the installation tree.
-No telemetry or source-discovery connection may occur on startup.
+that configuration, inputs and outputs stay outside the installation tree. No
+telemetry or source-discovery connection may occur on startup.
 
 ## Decision, concurrency and consumer scenarios
 
-The requirements in [the design overview](design.md#requirements-and-acceptance-routes)
-map to these planned acceptance cases. Use deterministic clocks and immutable
-fixtures for software checks, without treating those fixtures as physical evidence.
+The requirements in [the design
+overview](design.md#requirements-and-acceptance-routes) map to these acceptance
+cases. Use deterministic clocks and immutable fixtures for software checks,
+without treating those fixtures as physical evidence.
 
 | Case | Trigger | Required observable behavior |
 |---|---|---|
@@ -100,21 +102,22 @@ fixtures for software checks, without treating those fixtures as physical eviden
 | V11 / R6 | Known relevant epoch/config/domain change | Current invalidation is immediate; restored packet flow alone does not restore eligibility |
 | V12 / R7,R8 | Clean installation and output consumption | No workspace dependency, telemetry, persistent cache/history, default persistent log, control call or automatic assistance action |
 | V13 / R9 | Build the portable core and exercise coordinator with plain values/callable outcomes | No Linux/JSON/backend dependency in the core; no abstract clock/publisher/source interfaces needed |
-| V14 / R4,R5,R7 | Continuous input flood, stalled inference, suspend/resume, duplicate completion | Bounded loop/queues; timers remain serviced; suspend contributes to age; unexpected/duplicate job result cannot publish |
+| V14 / R4,R5,R7 | Continuous input flood, delayed inference and duplicate completion | Bounded loop/queues; timers remain serviced; old/duplicate jobs cannot publish. Suspend is included by the Linux clock contract; physical suspend/resume is not tested |
 | V15 / R2,R7 | Controlled configuration stop/start or startup failure | Old process exits before new writer starts; new session starts unknown; no restored job/history/class or hot-reload endpoint |
 
 These cases do not prove stationary-person detection, unseen-room transfer,
 resilience to interference or operational safety. Such claims need a qualified
-model and separate physical studies. The C++ implementation, fixtures and tests
-remain to be created after design review.
+model and separate physical studies. The implementation and synthetic fixtures
+do not supply a physical presence model or scientific accuracy estimate.
 
-## Architecture review before implementation acceptance
+## Architecture acceptance review
 
-Inspect the actual include/build dependency graph and the composition root.
-The core must build without Linux, JSON or model-runtime libraries. Its tests
-use explicit time and deterministic inference outcomes rather than platform
-mocks. Review that domain rules remain pure, the coordinator owns all state,
-backend handles stay in the adapter, payload lifetime reaches completion, and
-only one process owns the output path. Integration tests cover real adapters
-and service scheduling separately. These checks will be implemented with the
-code; this documentation change does not introduce a synthetic test framework.
+Inspect the actual include/build dependency graph and the composition root. The
+core must build without Linux, JSON or model-runtime libraries. Its tests use
+explicit time and deterministic inference outcomes rather than platform mocks.
+Review that domain rules remain pure, the coordinator owns all state, backend
+handles stay in the adapter, payload lifetime reaches completion, and only one
+process owns the output path. Integration tests cover real adapters and service
+scheduling separately. Core-only builds, independent tests, installed-package
+checks and QEMU system guests exercise these boundaries. The actual run
+receipts state which code and artifacts were checked.

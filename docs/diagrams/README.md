@@ -1,7 +1,8 @@
 # PlantUML design catalogue
 
-All views describe a planned means. They are not implemented behavior or
-experimental evidence. SVG files are portable renderings; `.puml` files are the
+Core views describe implemented responsibility and data/state boundaries;
+conceptual names are mapped in the linked documents. The assistance application
+remains prospective. Diagrams are not execution or scientific evidence. SVG files are portable renderings; `.puml` files are the
 editable source. Diagram labels are semantic; interpretation belongs to the
 linked design documents. Dependency arrows show source-code dependencies;
 processing/sequence arrows show runtime flow. Boxes do not imply an interface,

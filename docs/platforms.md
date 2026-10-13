@@ -2,28 +2,29 @@
 
 ## Portable core
 
-The proposed C++17 domain/application core owns normalized values, bounded
-window assembly, eligibility/freshness policies and result-state decisions.
+The C++17 domain/application core owns normalized values, bounded window
+assembly, eligibility/freshness policies and result-state decisions.
 Feature/model execution is supplied through one application-defined inference
 contract; JSON serialization belongs to a concrete outer adapter. The core
 receives typed values from adapters. It does not own radio acquisition, device
 discovery, wireless drivers, platform control APIs, or network policy.
 
-A future build must name supported architectures, compilers, libraries and
-runtime dependencies. C++17 alone does not define ABI or guarantee that a
-target supplies those dependencies. No source code, binary, package, or
-supported toolchain is provided by this design.
+The tested implementation route is Linux x86-64 with GCC and Clang, CMake,
+OpenSSL and a pinned JSON header. Native/static and sanitizer builds are
+checked separately. C++17 alone does not guarantee another ABI or platform. See
+[build instructions](building.md) and [actual software
+evidence](testing/README.md).
 
 ## Linux service adapter
 
-Linux is the proposed first service target, subject to a named and tested
-support matrix. The adapter may manage service lifecycle, local input access,
-result publication and bounded diagnostics. Paths, permissions and service user
-are deployment configuration, not compiled defaults. The initial transport is
-one declared local NDJSON pipe and one atomic local JSON file; it is not a
-configurable transport framework. The process should run with least privilege
-and read-only access to observation sources. A build for one Linux target does
-not establish support for other architectures or distributions.
+Linux x86-64 is the first tested service target. The adapter may manage service
+lifecycle, local input access, result publication and bounded diagnostics.
+Paths, permissions and service user are deployment configuration, not compiled
+defaults. The initial transport is one declared local NDJSON pipe and one
+atomic local JSON file; it is not a configurable transport framework. The
+process should run with least privilege and read-only access to observation
+sources. A build for one Linux target does not establish support for other
+architectures or distributions.
 
 ## Optional embedded adapters
 
@@ -48,7 +49,7 @@ verified for named targets. A platform adapter cannot compensate for missing or
 unsuitable sensing data. Software conformance does not establish detection
 accuracy, transfer to another environment, privacy acceptability, or safety.
 
-## Planned host deployment
+## Host deployment
 
 ![Local deployment boundary](diagrams/deployment.svg)
 
@@ -57,8 +58,8 @@ domain rules, one inference worker and a concrete atomic file writer. The
 runner wires dependencies at startup; no platform base class or plugin
 framework is required. The clock/timer and local stream/file I/O belong to the
 host adapter. The coordinator remains responsive to timer and invalidation
-events while a worker computes. This is a planned execution boundary, not
-measured timing behavior.
+events while a worker computes. Software tests exercise this execution
+boundary; no hard real-time guarantee is claimed.
 
 A producer supplies an explicitly configured local stream. The reviewed model,
 profile and feature pipeline are read-only runtime inputs outside the package's
@@ -66,9 +67,9 @@ compiled defaults. One current-result file contains current state, separate
 bounded candidate diagnostics and optional history in an operator-configured
 volatile directory. Model/configuration changes use restart. A suspend-aware
 `CLOCK_BOOTTIME` timer runs independently of input and inference. Consumers
-independently check the result's named clock domain and expiry. There is no
-network listener, remote discovery, cloud service or automatic control
-connection in this pilot.
+independently check the result's boot/time-namespace domain token and expiry.
+There is no network listener, remote discovery, cloud service or automatic
+control connection in this pilot.
 
 OpenWrt service/IPC and prplOS integration must preserve the same semantics. An
 AP-hosted deployment may need a separate source adapter; a standard service

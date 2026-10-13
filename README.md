@@ -1,68 +1,72 @@
 # Cooperative Wi-Fi Presence Monitor
 
-**Software means — design specification** · `cooperative_wifi_presence_monitor`
+**Linux software means** · C++17 · version 0.1.0
 
-This project specifies a portable, read-only service that publishes a current
-zone-level Wi-Fi presence estimate with evidence validity, age and provenance.
-The estimate is `present`, `absent` or `unknown`. Missing, incompatible or expired
-evidence cannot be interpreted as absence.
+Publish a current zone-level `present`, `absent` or `unknown` estimate from
+supplied normalized Wi-Fi features, with separate evidence validity, declared
+domain eligibility, capture age and provenance. Missing or expired evidence
+never means absence.
 
-**Status: design only. No executable, trained model, installable package or
-experimental performance result is provided.** C++17 and Linux are the first
-implementation targets. OpenWrt and prplOS remain later qualification tasks.
-Implementation and evaluation follow design review.
+The implementation includes a portable core, strict local NDJSON decoder,
+frozen linear inference adapter, bounded Linux worker/timer loop and atomic
+local JSON publication. It provides no radio acquisition, trained physical
+presence model or claim of real-world detection accuracy. Included fixture
+recipes are explicitly synthetic and require `--allow-synthetic`.
 
-Start with the [design overview](docs/design.md) and
-[Clean Architecture boundaries](docs/architecture.md). The
-[PlantUML catalogue](docs/diagrams/README.md) contains editable sources and SVG
-views of dependencies, processing, data, states, restart, deployment and user goals.
+## Build and run
 
-## First-version scope
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+cmake --install build --prefix /usr/local
+wifi-presence-monitor --config /etc/wifi-presence-monitor/config.json
+```
 
-One process serves one explicitly configured sensing zone:
+See [build/install instructions](docs/building.md) for dependencies, unprivileged
+staging, core-only and sanitizer/static builds, service-account setup and the
+optional systemd unit. The operator supplies the input FIFO, frozen reviewed
+bundle/profile and trusted manifest hash. No model or site configuration is
+installed by default.
 
-1. Read one declared normalized NDJSON input stream from a local pipe.
-2. Assemble bounded windows with exact sources, gaps, timestamps and epochs.
-3. Check integrity, model/feature compatibility, declared domain and freshness.
-4. Execute one frozen, reviewed model/pipeline through a bounded worker.
-5. Recheck the result and atomically replace one local current-result JSON file.
+## Current scope
 
-The portable domain and application logic do not depend on JSON, Linux, threads
-or an inference library. Concrete adapters are wired at startup; only model
-execution needs a replaceable behavior contract. There is no interface per
-processing step, plugin loader, network API, operational-context input or hot
-reload. Configuration and model changes require a controlled restart.
+One process serves one configured zone. It reads one local stream, assembles
+bounded exact-source windows, qualifies them, executes one frozen model and
+writes one atomic current-result file. Configuration changes require restart.
+One worker and at most one pending candidate keep inference backlog bounded;
+input processing cannot own the expiry loop. Consumers verify the local clock
+domain and original deadline independently at every use.
 
-A later gap or node dropout does not erase an independently eligible earlier
-window or extend its expiry. Known relevant invalidation and expiry withdraw the
-current class. A consumer also checks freshness at every use, so a stalled
-publisher cannot make old evidence current indefinitely. Rejected-candidate
-diagnostics and optional last-known history remain distinct from current evidence
-within the same output record.
+A later bad candidate or node dropout cannot renew or by itself erase an
+independently eligible earlier estimate. Known relevant invalidation, accepted
+abstention and expiry withdraw the class. Candidate diagnostics and optional
+last-known history remain distinct from current evidence in the same record.
 
-## Boundaries
+## Verification and evidence
 
-Acquisition, model training, measurement-rate control and radio/network policy
-remain outside this means. No research workspace, private configuration or
-collector-specific project is a runtime dependency. Later source/platform
-adapters may be added when there is a concrete supported integration.
+[Software acceptance evidence](docs/testing/README.md) documents native tests,
+sanitizers, clean installation and actual QEMU Linux system guests. The QEMU
+harness boots the installed service with a volatile root filesystem, synthetic
+inputs and no network device; genuine VGA console captures and derived results
+are retained with exact artifact hashes. These are software checks, not physical
+sensing studies. Linux x86-64 is tested; OpenWrt and prplOS qualification is future
+work.
 
-The estimate concerns a zone, not identity or exact position. `absent` is the
-reviewed model's negative class, not proof that nobody is there. Counting, fall
-detection, medical interpretation and SOS handling are separate prospective
-capabilities. [Use cases](docs/use-cases.md) show that boundary.
+## Documentation
 
-## Design documents
+- [Architecture, patterns and dependency direction](docs/architecture.md)
+- [Implemented pipeline and its scope](docs/implementation.md)
+- [Versioned configuration/model/input/result contracts](docs/interfaces.md)
+- [Data ownership](docs/data-model.md) and [result lifecycle](docs/lifecycle.md)
+- [Five observation-support failure causes](docs/lifecycle.md#five-causes-of-lost-observational-support)
+- [Editable PlantUML and SVG diagrams](docs/diagrams/README.md)
+- [Installation/privacy](docs/installation.md) and [platform boundary](docs/platforms.md)
+- [Acceptance requirements](docs/verification.md) and [use cases](docs/use-cases.md)
 
-- [Architecture, patterns and proposed code boundaries](docs/architecture.md)
-- [Data objects and ownership](docs/data-model.md)
-- [Result lifecycle and five failure causes](docs/lifecycle.md)
-- [Input, model, time and output contracts](docs/interfaces.md)
-- [Platforms and deployment](docs/platforms.md)
-- [Installation and privacy](docs/installation.md)
-- [Future verification and acceptance scenarios](docs/verification.md)
-
-`mean.toml` records the practical contract. Runtime state is volatile. There is
-no telemetry, persistent cache, automatic discovery, author configuration or site
-mapping in package defaults. Optional bounded process diagnostics contain no raw
-observations and introduce no additional consumer interface.
+The core depends on standard C++ values and pure rules. JSON, OpenSSL, Linux I/O
+and threading stay outside it. Runtime state is volatile; there is no telemetry,
+persistent cache, source discovery, remote/context/health API or radio control.
+Outputs concern a zone, not identity or exact position. Person counting, fall
+detection, medical interpretation and SOS are separate prospective capabilities.
+Dependency license notices are retained in the installed package.

@@ -1,9 +1,9 @@
 # Architecture
 
-The proposed means has one task: publish a justified current zone-level
-presence estimate from supplied Wi-Fi observations. It owns neither
-acquisition, model training, radio control nor measurement policy. All
-components below are planned.
+The means has one task: publish a justified current zone-level presence
+estimate from supplied Wi-Fi observations. It owns neither acquisition, model
+training, radio control nor measurement policy. The initial C++17 Linux
+implementation follows these boundaries.
 
 ## Dependency rule
 
@@ -13,7 +13,7 @@ Arrows in this view are source dependencies, not runtime message flow.
 
 | Boundary | Owns | May depend on |
 |---|---|---|
-| Domain | Plain observation/window/model-contract/result values; pure integrity, compatibility, domain, age and result-transition rules | C++17 standard value/container facilities only |
+| Domain | Plain observation/window/model-contract/assessment values; pure integrity, compatibility, domain and age rules | C++17 standard value/container facilities only |
 | Application | One concrete `PresenceMonitor` coordinator; bounded assembly, current/candidate/history ownership, admission, job IDs and generation checks | Domain |
 | Adapters | Declared NDJSON decoder, reviewed inference implementation, JSON encoder/atomic file writer | Application contracts and domain values; their selected external libraries |
 | Linux composition root | Startup validation, concrete wiring, local pipe, clock/timer, bounded worker and process lifecycle | Application and adapters; Linux/runtime libraries |
@@ -26,14 +26,13 @@ contract. Domain rules do not call a clock or perform I/O. The runner passes
 explicit time and normalized facts and executes plain jobs/results returned by
 the coordinator.
 
-There is one replaceable behavior boundary: the application-defined inference
-callable, `InferenceJob -> InferenceOutcome`. The worker invokes the supplied
-implementation; the coordinator never waits for or calls the backend directly.
-The outcome distinguishes a model class, abstention and execution failure. This
-is a contract, not a requirement for a virtual class hierarchy. Constructor
-injection or a typed callable is sufficient; choose the simplest binding when
-an actual backend is selected. There is no interface for every domain value,
-assembler, qualifier, publisher, clock or platform.
+There is one inference behavior boundary using application-owned `Job` and
+`Outcome` values. The initial Linux worker binds the concrete linear inference
+function to the frozen bundle; it never changes core policy. Replacing that
+backend affects the outer adapter and composition root. This does not require a
+virtual class hierarchy or runtime plugin mechanism. Coordinator tests pass
+plain completion values directly. There is no interface for every assembler,
+qualifier, publisher, clock or platform.
 
 ## Processing responsibilities
 
@@ -110,11 +109,12 @@ second health endpoint while keeping their scientific meanings separate. See
 
 ## Model and configuration lifecycle
 
-The integrator selects one reviewed bundle and profile at startup. The bundle
-binds artifact hashes, exact features, presence-class semantics, supported
-source subsets, time requirements and declared operating envelope. Hashes
-verify identity, not scientific correctness; motion-only negatives cannot
-become `absent`.
+The integrator selects one frozen bundle and profile at startup. Deployment
+requires reviewed presence evidence; synthetic fixtures are an explicit test
+opt-in. The bundle binds artifact hashes, exact features, presence-class
+semantics, supported source subsets, time requirements and declared operating
+envelope. Hashes verify identity, not scientific correctness; motion-only
+negatives cannot become `absent`.
 
 There is no hot-reload method, management socket or runtime model selection.
 Changing model/configuration uses a controlled stop/start. After establishing a
@@ -134,7 +134,7 @@ sequence](diagrams/configuration_startup.svg) shows this boundary.
 | Technique | Concrete reason | Minimal form |
 |---|---|---|
 | Adapter | Separate wire/backend representation from domain meaning | Concrete decoder, inference adapter and writer |
-| Strategy | Replace the selected model backend without changing admission/expiry rules | One injected inference callable; no plugin loader or registry |
+| Inference function boundary (Strategy seam) | Permit a different backend without changing admission/expiry rules | One concrete frozen function binding in the outer runner; no plugin loader or registry |
 | Explicit state machine | Make `present`, `absent`, `unknown`, expiry and invalidation auditable | Values and transition functions; no State subclass per class |
 | Composition root and dependency injection | Keep platform choices at startup and test the use case independently | One `main` wires concrete objects; no DI container or abstract factory |
 | Bounded producer/consumer worker | Keep model computation off the expiry loop | One worker, one pending job, one completion slot; no broker/actor system |
@@ -145,22 +145,24 @@ scheduler and configurable processing graph solve no current requirement and
 are excluded. Extensibility means replacing an outer integration or adding a
 justified use case later; it does not mean prebuilding extension interfaces.
 
-## Proposed source layout
+## Source layout
 
-This is a future layout, not source scaffolding created by this design:
+These files are implemented:
 
 ```text
-src/domain/        # values and pure policy functions
-src/application/   # concrete coordinator and plain job/outcome contracts
-src/adapters/      # NDJSON, selected inference backend, JSON/file publication
-app/main.cpp       # Linux runner and composition root
+include/presence/domain.hpp # plain values and pure policy declarations
+include/presence/core.hpp   # coordinator and job/outcome contracts
+src/domain/                # pure qualification rules
+src/application/           # concrete serialized coordinator
+src/adapters/              # JSON, frozen linear inference, atomic writer
+app/main.cpp               # Linux runner and composition root
 ```
 
 One portable core library contains domain/application code; one Linux
 executable links it and the adapters. These directories express responsibility,
 not a requirement for four libraries or packages. Coordinator tests pass
-explicit time and deterministic completion values; runner tests can inject a
-deterministic inference callable. No clock/filesystem mock interface is needed
+explicit time and deterministic completion values. Process tests exercise the
+concrete adapter with synthetic fixtures. No clock/filesystem mock interface is needed
 for domain/application tests.
 
 ## Current scope and extension conditions

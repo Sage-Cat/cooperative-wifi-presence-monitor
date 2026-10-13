@@ -1,241 +1,181 @@
-# Interfaces
+# Version 1 runtime contracts
 
-These are proposed data contracts, not implemented APIs. The first version has
-one declared normalized local NDJSON input and one atomic local JSON output.
-There is no separate health, management, context or remote-consumer interface.
-See the [data model](data-model.md) and [lifecycle](lifecycle.md) for ownership
-and state-transition semantics.
+The implemented service reads one local NDJSON stream and writes one atomic
+JSON result. The strict decoder in `src/adapters/contracts.cpp` is the
+executable input contract. Unknown fields, duplicate keys, unsupported schemas,
+missing required fields, excessive nesting, invalid types and non-finite
+numbers are rejected. There is no field-name guessing or legacy auto-detection.
 
-## Normalized observation boundary
+All configuration/model limits are explicit integers. Millisecond time values
+are nonnegative, bounded signed-64-bit values internally; booleans and floating
+point encodings are not accepted as integer substitutes. Strings,
+cardinalities, file sizes and input frames are bounded. No missing scientific
+fact receives a presence-class default.
 
-The core consumes normalized, typed observation records; it is independent of
-any collector, project checkout, transport, or hardware API. The initial
-concrete decoder maps one frozen normalized schema to this boundary and
-preserves opaque source ID, sequence and epoch facts, capture and ingest times,
-integrity/parser status, missingness, and time-mapping uncertainty. It must not
-infer absent facts. Collector-specific contracts such as `cws-source-record/2`
-are possible later adapters, not first-version dependencies or
-runtime-discovered alternatives. The initial encoding and required integrity
-fields must be frozen alongside the chosen producer and model before
-implementation.
+## Startup configuration: `wifi-presence-config/1`
 
-Unknown schema versions, malformed records, failed integrity checks, invalid
-fields, and unusable sequence facts are not valid observations. Absent hashes,
-epochs, parser results or device sequences stay unknown; legacy compatibility
-is not part of the first decoder. A record is usable only if the frozen
-pipeline does not require an absent fact.
+| Field | Meaning |
+|---|---|
+| `schema_version` | Exactly `wifi-presence-config/1` |
+| `zone_id` | Opaque configured zone label |
+| `input_path` | Absolute local FIFO path, or `-` for standard input |
+| `output_path` | Absolute current-result JSON path in an operator-owned volatile directory |
+| `manifest_path` | Absolute frozen model-manifest path |
+| `manifest_sha256` | Trusted expected SHA-256 of the exact manifest bytes |
+| `max_frame_bytes` | Optional resource bound, 256–65536 bytes; default 16384 |
 
-Required declared operating metadata is carried in the same observation record
-or startup profile, not a separate context channel. Known invalidations come
-from those source facts or the host clock; the runner passes them as typed
-data. An operator who knows the operating envelope no longer applies must stop
-use and supply a reviewed profile through controlled restart. Unobserved
-changes are not detected by this design.
+Paths must be normalized, non-overlapping and free of symlink components. The
+writer requires an owned output directory not writable by other users,
+restrictive single-link regular output/lock files and one exclusive advisory
+writer lock. Inputs and installed files are read-only to the means; runtime
+output and its lock are separate from the installation tree. Configuration is
+fixed for the process lifetime.
 
-Capture time differs from ingest time. Preserve the source timestamp and any
-clock mapping's source and uncertainty. Ingest clocks can indicate arrival
-order and transport delay, not capture instant. Timing assessments may be
-consumed only as explicit, separately versioned facts. The monitor does not
-invent synchronization or infer simultaneity from arrivals.
+## Frozen model: `wifi-presence-model/1`
 
-## Frozen model bundle
+Required fields are `model_id`, `pipeline_id`, `profile_id`, `provenance_kind`,
+`task`, `stationary_presence`, `negative_class`, `source_ids`, `feature_names`,
+`feature_units`, `required_metadata`, `samples_per_source`,
+`max_window_span_ms`, `max_alignment_ms`, `max_age_ms`, `max_uncertainty_ms`,
+`artifact_path`, `artifact_sha256`, `pipeline_path` and `pipeline_sha256`, plus
+the exact schema identifier.
 
-At startup, verify the supplied manifest against its operator-approved expected
-hash, then verify referenced artifact bytes. A self-declared hash is not a
-trust anchor. One bundle and profile remain fixed for the process lifetime;
-changing them requires controlled stop/start. The manifest declares:
+The task is `zone-presence`, stationary-presence scope must be declared true,
+and the negative class must be `absence`. `provenance_kind` is either
+`synthetic`, requiring `--allow-synthetic`, or `reviewed-presence`, requiring a
+nonempty `review_reference`. The latter is operator-supplied review provenance,
+not an automatically verified scientific finding.
 
-- stable model ID, manifest schema version, model artifact path and SHA-256;
-- feature-pipeline ID/version/hash, exact feature names and order, units,
-  extraction and normalization steps, window duration, and required sample
-  count;
-- presence-task identity, class semantics, stationary-presence scope, and the
-  model's declared decision rule/thresholds;
-- supported radio/source profiles and required metadata;
-- supported single-source or cooperative subsets, minimum source count, and
-  temporal compatibility requirements;
-- declared domain envelope and the metadata needed to check it;
-- build and artifact provenance sufficient to identify the reviewed bundle.
+Source IDs are ordered and unique, with at most 16 sources. Feature names are
+ordered and unique, with at most 64 features; units have matching cardinality.
+Each source contributes 1–256 samples per disjoint window. Required operating
+metadata is an exact string-valued map with at most 32 entries. Time/resource
+limits are validated; maximum age is positive and bounded to one day. These
+bounds are implementation limits, not scientifically recommended thresholds.
+The operator must select limits justified for the actual reviewed model.
 
-A reviewed motion-only negative output cannot be mapped to `absent`. The
-stationary-presence scope and class semantics require scientific review; hashes
-only verify artifact identity. No trained model or universal backend is
-provided.
+Model and pipeline paths are sibling basenames of the manifest. SHA-256 is
+computed over exact file bytes, including whitespace; there is no implicit JSON
+canonicalization. First verify the operator-pinned manifest, then its
+referenced artifact/pipeline hashes and their contracts. A self-declared hash
+is not a trust anchor. No model search, online training, live reload or
+automatic subset fallback is implemented.
 
-The manifest describes the tested envelope; it cannot detect unmeasured room,
-radio, participant, antenna, placement, or environmental changes. Runtime
-checks compare available metadata and features with that declaration. Missing
-required metadata yields `unknown` eligibility; mismatch yields `ineligible`.
-Model and feature code stay frozen for a window. Online learning, threshold
-tuning, and stream-based model selection are out of scope.
+The pipeline file uses `wifi-presence-pipeline/1`, `aggregation:
+"per-source-mean"` and exact `feature_names` / `feature_units`. The model
+artifact uses `wifi-presence-linear/1` with finite `weights`, `bias`,
+`absent_threshold` and `present_threshold`. Weights have one entry per source
+and feature in source-major order. The lower threshold is strictly less than
+the upper. See [the inference
+definition](implementation.md#fixed-processing-pipeline).
 
-Feature extraction must match the frozen manifest exactly. Missing fields,
-unexpected order, incompatible units, unrecognized preprocessing version, or
-model-hash mismatch blocks inference. Source-specific confidence, reliability,
-trigger, or motion fields are not model probabilities or presence labels. They
-may be used as input features only if the frozen manifest explicitly declares
-their exact schema and meaning; there is no operational-context input channel.
+## Observation: `wifi-presence-observation/1`
+
+Each newline terminates exactly one complete JSON object:
+
+| Required field | Meaning |
+|---|---|
+| `schema_version` | Exactly `wifi-presence-observation/1` |
+| `source_id` | One configured opaque source ID |
+| `boot_epoch`, `config_epoch` | Declared source continuity tokens |
+| `sequence` | Nonnegative integer through uint64 maximum; continuity is checked per source |
+| `capture_ms` | Capture instant already mapped to the local `CLOCK_BOOTTIME` basis |
+| `uncertainty_ms` | Conservative nonnegative mapping uncertainty |
+| `clock_domain` | Opaque local boot/time-namespace token, independently checked against the local OS |
+| `pipeline_sha256` | Exact declared feature-pipeline identity |
+| `feature_names`, `feature_units` | Exact ordered feature contract |
+| `features` | Finite numerical vector with matching cardinality |
+| `metadata` | String-valued operating facts required by the manifest |
+| `integrity`, `parser_status` | Explicit upstream integrity boolean and parser status; usable input requires true / `ok` |
+
+Integrity/parser declarations are source facts. The service checks their types
+and values, encoding and continuity; it does not authenticate a producer or
+verify raw CSI that was not supplied. A trusted normalization producer must
+preserve the real acquisition facts and clock mapping. Arrival is never used as
+capture time.
+
+Missing required domain metadata makes that candidate's applicability unknown;
+a contradiction makes it ineligible. A known relevant epoch/domain change can
+invalidate current evidence and running jobs. A rejected later candidate alone
+does not erase independently eligible earlier evidence. No dedicated
+operational context or environment-change detector is supplied.
 
 ## Time and expiry contract
 
-Every assembled window records start/end in its source time basis, the mapping
-to the monitor's clock if available, and a conservative uncertainty bound.
-Cross-node fusion is allowed only if every included node's capture-time mapping
-is valid and their combined alignment uncertainty is within a frozen model or
-profile tolerance. If a source clock resets, its boot/config epoch changes, or
-the mapping is missing or outside tolerance, cross-node fusion is not
-attempted; the service may evaluate a separately supported single-node model,
-otherwise the result is `unknown`.
+For each included source `i`, let `e_i` be the mapped capture-window end and
+`epsilon_i` its conservative uncertainty. All values share a verified local
+`CLOCK_BOOTTIME` domain. The core computes:
 
-The evidence age is computed from capture-window ends, not arrival. For every
-included source `i`, let `e_i` be its mapped capture end, `epsilon_i` its
-nonnegative time-mapping uncertainty, and `A_max` the frozen maximum age. All
-`e_i`, the publisher's `now`, and the uncertainty bounds must share one
-declared time basis. The conservative age is `A = max_i(now - e_i +
-epsilon_i)`. Evidence is fresh only while `A <= A_max`. The common conservative
-expiry is `valid_until = min_i(e_i - epsilon_i + A_max)`. For one source these
-reduce to the same single-source formula. If any mapped source end is in the
-future by more than its uncertainty (`e_i - now > epsilon_i`), reject that
-clock mapping; do not clip a negative age to zero. Unknown clock mapping,
-unbounded uncertainty, or incompatible time bases prevents cooperative
-inference. A single-source model may still run if its own clock requirements
-pass.
-
-`valid_until` is meaningful only in its named clock domain. The first consumer
-is on the same host and verifies a common OS clock instance through trusted
-local runtime context. A matching publisher-supplied label alone is
-insufficient. Clock-domain identifiers are opaque runtime tokens, not exported
-raw host/boot identities. An unverified mapping means current `unknown`.
-
-The first Linux runner uses `CLOCK_BOOTTIME` so suspend time counts toward
-expiry; the consumer must use the same verified basis. Capture-to-host mapping
-and its uncertainty are still required. Restart/reboot establishes a new
-runtime session and fresh unknown state; retained files never establish
-continuity. Remote delivery, wall-clock interchange and cross-host TTL are
-outside the first version and have no placeholder fields or adapter here.
-
-## Proposed result: `wifi-presence-result/1`
-
-One immutable result record contains the current estimate, evidence and domain
-states, source window, provenance, a bounded diagnostics section, and optional
-historical value. Field meanings are fixed below; implementation must reject
-unknown major versions and missing required fields.
-
-| Field | Contract |
-|---|---|
-| `schema_version` | Exactly `wifi-presence-result/1` for this design. |
-| `result_id` | Unique result identifier generated by the monitor; no user or site identity. |
-| `zone_id` | Opaque operator-configured sensing-zone label. |
-| `estimate` | `present`, `absent`, or `unknown`; current categorical estimates require all applicable gates to hold. A failed new candidate alone does not invalidate a prior eligible window. |
-| `decision_reasons` | Reasons for the current decision, including model abstention, expiry or startup failure. Separate from evidence/domain assessments and rejected-candidate diagnostics. |
-| `evidence_validity` | `valid`, `invalid`, or `unknown`, with an array of reason codes. |
-| `domain_eligibility` | `eligible`, `ineligible`, or `unknown`, with reasons and the checked profile ID/hash. |
-| `evidence_window` | Source IDs, session/connection epochs, first/last source sequence, capture start/end, time basis, mapping status, and uncertainty. |
-| `age` | Conservative upper bound `A`, configured maximum age, `as_of` calculation instant and named time basis. A consumer updates age from the capture facts or expiry, not from file modification time. |
-| `valid_until` | Conservative expiry instant in an explicit named time basis, or `null` when it cannot be established; never an unqualified cross-host monotonic value. |
-| `provenance` | Source-record schema version; model, pipeline and config IDs/hashes; software build ID; opaque runtime session and in-process evidence generation. |
-| `last_known` | Separate optional historical estimate with its original result ID, class, window, validity, and expiry. Never substituted for `estimate`. |
-| `diagnostics` | Bounded latest candidate/input reason set and fixed-size counters, including capacity loss and whole-window skips. Separate from current evidence; no raw payload or unbounded history. |
-
-Illustrative shape (placeholders only):
-
-```json
-{
-  "schema_version": "wifi-presence-result/1",
-  "result_id": "<opaque-result-id>",
-  "zone_id": "<configured-zone-label>",
-  "estimate": "unknown",
-  "decision_reasons": ["<current-decision-reason>"],
-  "evidence_validity": {
-    "state": "unknown",
-    "reasons": ["<reason-code>"]
-  },
-  "domain_eligibility": {
-    "state": "unknown",
-    "profile_id": "<profile-id>",
-    "profile_sha256": "<sha256>",
-    "reasons": ["<reason-code>"]
-  },
-  "evidence_window": {
-    "source_ids": ["<opaque-source-id>"],
-    "record_schema": "<source-schema/version>",
-    "capture_start": null,
-    "capture_end": null,
-    "time_basis": "unknown",
-    "uncertainty_ms": null
-  },
-  "age": {
-    "upper_bound_ms": null,
-    "max_age_ms": "<configured-limit>",
-    "as_of": null,
-    "time_basis": "unknown"
-  },
-  "valid_until": null,
-  "provenance": {
-    "model_id": "<model-id>",
-    "model_sha256": "<sha256>",
-    "pipeline_id": "<pipeline-id>",
-    "pipeline_sha256": "<sha256>",
-    "config_sha256": "<sha256>",
-    "service_build_id": "<build-id>",
-    "runtime_session": "<opaque-runtime-session>",
-    "evidence_generation": "<in-process-generation>"
-  },
-  "last_known": null,
-  "diagnostics": {"last_input_reasons": [], "counters": {}}
-}
+```text
+A = max_i(now - e_i + epsilon_i)
+valid_until = min_i(e_i - epsilon_i + max_age_ms)
+fresh iff A <= max_age_ms
 ```
 
-Freeze the JSON schema and canonical hash rules before code or external
-consumers depend on this contract. `null` means unavailable or inapplicable;
-never invent sentinel timestamps or zero values for missing evidence.
+Expiry is inclusive at equality and withdrawn at the first representable tick
+beyond the deadline. Time uncertainty, future mappings, window spans and
+cross-source capture-end alignment are checked without signed overflow. A
+future end is allowed only within its declared uncertainty. Pending and
+completed jobs are requalified; issuance uses a current coordinator snapshot.
+No receipt, inference completion or repeated publication extends the capture
+horizon.
 
-## First local transport
+Linux `CLOCK_BOOTTIME` includes suspend time. The service publishes an opaque
+clock token `SHA256("wifi-presence-clock/1:" + local_boot_id + ":" +
+time_namespace)` and a separate random runtime session. `time_namespace` is the
+exact local `/proc/self/ns/time` link identity; on kernels without time
+namespaces (that link is absent), it is the literal `global`. Other lookup
+failures prevent clock verification. A local consumer computes the token
+independently from its own trusted OS context and evaluates expiry at every
+use. A producer in a different time namespace cannot reuse its timestamps
+without a separately established mapping into this domain. A matching publisher
+label alone is insufficient. Raw boot and namespace identities are not included
+in observations or results. Linux virtualizes `CLOCK_BOOTTIME` per time
+namespace; see [the kernel userspace clock
+contract](https://man7.org/linux/man-pages/man7/time_namespaces.7.html).
+Unknown/mismatched domains yield unknown; no remote TTL or cross-host route is
+implemented. Restart establishes fresh unknown state and does not restore jobs
+or history.
 
-The first Linux host adapter is planned to read a newline-delimited JSON stream
-from an explicitly supplied local pipe. The one declared normalized schema is
-configuration, not inferred from field names. The stream is nonblocking, with
-bounded input processing per loop iteration so timers cannot starve. It maps
-those envelopes to typed observations. Record-size and buffer limits are
-explicit. Malformed frames are rejected without echoing raw content; source
-continuity is never silently reset. EOF or a disconnected pipe is no-new-data,
-while the monotonic expiry timer continues. A new connection establishes its
-declared source/epoch facts.
+## Result: `wifi-presence-result/1`
 
-The publisher writes one complete JSON temporary file and atomically replaces
-the configured current-result file in the same volatile runtime directory. It
-never writes inside the installed package. Same-filesystem replacement prevents
-partially readable records; it does not guarantee delivery or make the content
-fresh. Candidate diagnostics are a separately labelled bounded section of this
-same record, not a second file, endpoint or presence label. Updating
-diagnostics must not change the current evidence window or its original
-deadline. Fixed-size counters must not wrap; the schema will specify saturation
-semantics. Optional bounded process diagnostics may be enabled, but contain no
-raw observations.
-
-Consumers evaluate freshness at every use, even when file contents have not
-changed. On unreadable, malformed, unsupported or unmappable output, they use
-`unknown`; an atomic rename proves completeness, not truth or liveness. There
-is no included consumer UI, transport client or monitoring daemon.
-
-## Decision and diagnostic reasons
-
-All applicable reasons are retained. The proposed vocabulary distinguishes:
-
-| Reason | Typical owner and interpretation |
+| Field | Meaning |
 |---|---|
-| `service_starting`, `model_unavailable` | Coordinator cannot yet issue a categorical estimate |
-| `missing_observations`, `required_source_unavailable` | Candidate window/input coverage is insufficient |
-| `input_contract_mismatch`, `model_integrity_failed` | Feature/source/bundle identity is incompatible or invalid |
-| `domain_unknown`, `domain_ineligible` | Required domain facts are absent or contradict the reviewed envelope |
-| `time_mapping_unknown`, `clock_discontinuity` | Capture age/alignment cannot be justified |
-| `evidence_expired` | Current window exceeds its original age limit |
-| `model_abstained` | Evidence may be valid and domain eligible, but the model provides no accepted class |
-| `configuration_invalid` | Startup configuration/bundle cannot establish a usable contract |
-| `capacity_exceeded`, `window_skipped` | Bounded processing lost records or skipped a pending whole window; status must state which |
+| `schema_version`, `result_id`, `zone_id` | Version, opaque publication identity and configured zone |
+| `estimate` | Current `present`, `absent` or `unknown` |
+| `decision_reasons` | Reasons for the current decision, distinct from later candidate problems |
+| `evidence_validity` | `valid`, `invalid` or `unknown`, with reasons |
+| `domain_eligibility` | `eligible`, `ineligible` or `unknown`, reasons and profile identity/hash |
+| `evidence_window` | Null before usable evidence; otherwise ordered source records with epochs, first/last sequence, capture start/end, uncertainty, mapping status and time basis |
+| `age` | Null when no horizon is known; otherwise `upper_bound_ms`, `maximum_ms`, `as_of_ms`, `time_basis` |
+| `valid_until` | Original conservative deadline in the named verified domain, or null |
+| `provenance` | Source schema; model/pipeline/manifest/config identities and hashes; software version; runtime session/generation; model scope; opaque clock-domain token and time basis |
+| `diagnostics` | Separate latest input/candidate assessment and saturating uint64 rejection/skip/stale-completion counters; no raw input or unbounded history |
+| `last_known` | Optional earlier class with its original evidence/domain assessments, capture window and deadline; never the current answer |
 
-A candidate-only reason belongs to `diagnostics` until it also applies to the
-current window. It must not be copied into current evidence reasons while
-retaining a categorical class. An old-generation completion is discarded and
-diagnosed, without reclassifying current evidence. The schema and vocabulary
-must be frozen with producer/consumer contract fixtures before implementation.
+The complete JSON encoder is `src/adapters/output.cpp`. Null means unavailable,
+not a zero timestamp or absent class. The consumer must verify required nested
+fields, schema, evidence/domain states, independent local clock token and
+deadline before using a categorical class. The independent reference consumer
+in `tests/integration/consumer_contract.py` demonstrates these checks for
+synthetic software tests; it is not a shipped UI or a sensing safety system.
+
+## Local transport and failure reasons
+
+The runner reads nonblocking input with bounded work per iteration. Oversized
+frames are discarded through the next newline and diagnosed; malformed content
+is never echoed. EOF preserves timer processing. A disconnected/reconnected
+FIFO must still supply coherent source epochs and sequences.
+
+One complete temporary JSON record replaces the current file on the same
+filesystem. Its lock and temporary file are transient writer mechanics, not a
+second result API or persistent cache. Partial files are never the current
+record. An old readable file does not establish liveness: consumer expiry still
+applies after a stalled process or failed write.
+
+Reasons distinguish startup/configuration failure, input/feature
+incompatibility, integrity, required source/sequence loss, domain
+unknown/ineligible, clock/alignment, capacity loss, expired evidence, model
+abstention, inference failure and stale completion. Candidate-only reasons
+remain in diagnostics until they also apply to current evidence; historical
+assessments retain their original meaning.

@@ -4,12 +4,12 @@ canonical_name = "Cooperative Wi-Fi Presence Monitor"
 implementation_surface = "."
 
 [practical_contract]
-implementation_kind = "software (design only)"
+implementation_kind = "software"
 practical_task = "Publish a read-only zone-level present, absent, or unknown estimate from integrity-checked cooperative Wi-Fi source windows, with separate evidence validity, age, domain eligibility, and provenance."
-usable_result = "Planned: a versioned current-result record with a conservative validity horizon and a separately identified last-known historical estimate; currently: design specification only, with no executable result."
+usable_result = "Implemented: versioned current-result JSON with separate evidence/domain state, conservative capture-based horizon, bounded candidate diagnostics and original historical context. Software conformance is tested with synthetic models; no validated physical presence model is supplied."
 intended_user = "Operator or integrator of an indoor cooperative Wi-Fi sensing setup."
-application_route = "Proposed C++17 domain/application core with inward dependencies, one injected inference contract and concrete Linux adapters. First version: one local normalized NDJSON stream, one frozen startup bundle/profile, one atomic local JSON output. No runtime is implemented or installable yet."
+application_route = "C++17 portable domain/application core with inward dependencies and concrete Linux NDJSON, frozen linear-inference and atomic JSON adapters. One local stream, startup-only bundle/profile and result file. Native and QEMU x86-64 Linux tested; embedded qualification is future work."
 inputs = ["Normalized, versioned observation records from a declared source adapter", "Frozen and hash-verified feature-pipeline and model bundle", "Explicit domain/profile configuration"]
 outputs = ["Versioned current presence result: present, absent, or unknown", "Separate evidence-validity, domain-eligibility, age-bound, and expiration fields", "Model, pipeline, source-window, and configuration provenance", "Bounded candidate diagnostics in the same result record", "Optional last-known result retained as historical context only"]
 exclusions = ["CSI acquisition and raw-record ownership", "Firmware measurement-rate transactions and acknowledgement authority", "Measurement-rate decisions", "Access-point, channel, association, routing, QoS, or traffic mutation", "Person identity, exact location, medical state, threat detection, and claims of validated defense or safety performance", "Hot reload, remote delivery, operational-context input, plugins and separate health APIs"]
-verification_routes = ["Future: CMake build and C++ unit/contract tests on named targets", "Future: normalized-interface compatibility and deterministic fixture checks", "Future: first Linux input/output adapter and restart tests; embedded integrations require separate qualification"]
+verification_routes = ["CMake core-only, native, static and Clang ASan/UBSan builds and CTest suites", "Independent synthetic input/model/consumer contracts and installed Linux process checks", "Actual QEMU Linux system guest with installed service, no network, artifact-hashed VGA checkpoints and simulation summaries", "Clean installation allowlist, unchanged package and network-syscall trace checks"]

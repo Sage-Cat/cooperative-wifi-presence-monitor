@@ -1,11 +1,10 @@
 # Data and ownership model
 
-This is a planned data contract for a read-only, zone-level presence estimate.
-It specifies concepts and relationships; it does not define an executable API
-or a frozen JSON schema. The proposed serialized result name is
-`wifi-presence-result/1`. The means consumes normalized records and publishes
-current state with unpublished model output and historical context kept
-distinct.
+This view explains implemented ownership concepts for a read-only zone-level
+presence estimate. Diagram names are conceptual; the mapping below identifies
+actual C++ types. The exact serialized contract is [the v1
+interface](interfaces.md). Current state, unpublished model output and
+historical context remain distinct.
 
 ![Core data and ownership contract](diagrams/core_contract.svg)
 
@@ -38,7 +37,7 @@ distinct.
 - **InferenceCandidate** is an unpublished model output tied to one window and
   evidence generation and immutable model contract. It is not itself the published current result.
 - **PresenceResult** is the current published estimate with `decision_reasons`,
-  evidence and domain states, age, expiry, and provenance. The proposed
+  evidence and domain states, age, expiry, and provenance. The
   `decision_reasons` specifically records model abstention or decision failure;
   evidence-validity reasons remain separate.
 - **HistoricalResult** preserves an earlier result's original class, window,
@@ -83,3 +82,20 @@ Current state, candidate diagnostics, and history have separate roles: only the
 current PresenceResult answers the current query; candidates expose unpublished
 model outputs; historical records preserve prior outcomes without extending
 their validity.
+
+## Mapping to implementation
+
+| Diagram concept | Implemented type/boundary |
+|---|---|
+| NormalizedObservation | `Observation` in `include/presence/domain.hpp` |
+| ObservationWindow | `Window` and `SourceWindow` domain values |
+| ModelBundle | Plain `Contract` in the core; parsed `Bundle` and model assets stay in the adapter |
+| EvidenceAssessment | Domain `Assessment` |
+| InferenceCandidate | Application `Job` / `Outcome` with runtime, generation and job/window identity |
+| PresenceResult | Application `Result`, returned by the coordinator and serialized by the outer adapter |
+| HistoricalResult | At most one retained original `Result`, encoded as `last_known` |
+
+The diagram is not a class-per-responsibility prescription. The domain header
+imports no application, JSON, Linux, thread or backend headers. The application
+header imports domain values. The installed package contains no research
+payload.

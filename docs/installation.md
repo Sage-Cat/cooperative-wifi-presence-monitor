@@ -1,11 +1,12 @@
-# Planned installation and privacy contract
+# Installation and privacy contract
 
-This document specifies future packaging behavior. There is no executable
-software or install command yet, and no installability claim is made.
+The CMake install route ships only the runtime executable, configured systemd
+unit, install allowlist and dependency license notices. See [build/install
+instructions](building.md) and [clean-install evidence](testing/README.md).
 
 ## Package contents
 
-A future release package may contain only an allowlisted set of built
+Any release package must contain only an allowlisted set of built
 executables/libraries, required runtime assets, versioned schemas, example
 configuration, service metadata, and applicable license notices. The release
 process must record the exact allowlist and verify the package contents against
@@ -39,7 +40,7 @@ runtime asset, invalid timestamp mapping, or expired observation produces
 `unknown`; packaging defaults must not supply a class label or reset evidence
 age. Operational logs and service status must preserve this distinction.
 
-## Proposed process configuration
+## Process configuration
 
 The integrator explicitly supplies the one declared input schema, local pipe,
 reviewed bundle/profile with an expected trusted manifest hash, and volatile
@@ -49,7 +50,7 @@ No source, model, site, user home or development path is guessed on startup.
 The installation tree is read-only; model/configuration files are separate
 operator-managed inputs.
 
-The initial service definition must disable persistent stdout/stderr capture by
+The supplied service definition disables persistent stdout/stderr capture by
 default. An operator may enable bounded diagnostics explicitly. Current-result
 publication is transient application output, not a history cache. At most one
 historical result is held in memory; it is not restored automatically after

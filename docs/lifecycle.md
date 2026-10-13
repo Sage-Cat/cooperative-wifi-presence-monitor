@@ -32,7 +32,7 @@ runtime/session token and does not automatically restore prior history.
 
 | Event | Current-result decision | Candidate/acquisition consequence |
 |---|---|---|
-| Startup, no reviewed bundle or required facts unknown | Unknown | Wait for valid configuration and observations; do not supply a default class |
+| Startup or required facts unknown | Unknown | Valid startup waits for eligible observations; invalid configuration exits and requires corrected restart |
 | New complete compatible window, accepted current-generation model output | Replace with its estimated class after publication-time recheck | Record its capture window, fixed deadline and provenance |
 | Model abstains on an otherwise eligible new window | Publish unknown with `model_abstained` | Do not fall back to an earlier categorical estimate |
 | New candidate has gaps, bad records, late input or an unsupported reduced subset | Keep prior estimate only if independently eligible; otherwise unknown | Reject candidate and expose all applicable diagnostic reasons; original deadline unchanged |

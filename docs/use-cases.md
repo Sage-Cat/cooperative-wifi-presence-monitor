@@ -1,16 +1,17 @@
 # Actors and use cases
 
-The diagram summarizes goals at the software boundary. The Wi-Fi presence
-monitor is a design specification; these interactions are not implemented.
+The diagram summarizes goals at the software boundary. The core monitor is
+implemented; operator/application goals use its one local result record. No
+built-in UI is shipped. The separate assistance diagram remains prospective.
 
-![Use cases of the planned presence monitor](diagrams/use_cases.svg)
+![Use cases of the presence monitor](diagrams/use_cases.svg)
 
 The source supplies normalized records through one configured local stream; the
 monitor assembles windows while preserving timestamps, integrity and
 missingness. The integrator configures a model and profile that have been
 qualified for the declared input and operating envelope. Changes require a
 controlled restart. The operator and consumer use the same local result record;
-no built-in UI, control API or separate health service is planned. The operator
+no built-in UI, control API or separate health service is shipped. The operator
 views the current zone-level `present`, `absent`, or `unknown` estimate and may
 inspect its freshness and reasons. A consuming application consumes the
 versioned result within its stated validity horizon; when the horizon expires

@@ -1,19 +1,21 @@
-# Design overview
+# Design and implementation overview
 
-This is a proposed software design for the Cooperative Wi-Fi Presence Monitor.
-It specifies behavior to implement and verify. Diagrams do not establish runtime
-behavior or scientific performance. No executable or validated model is supplied.
+This document records the implemented minimal C++17 Linux pilot. Native,
+sanitizer, installed-process and QEMU checks establish software conformance on
+synthetic inputs. No reviewed physical presence model or sensing-performance
+result is supplied. Exact execution evidence is in
+[testing](testing/README.md).
 
 ## Practical goal
 
-Publish one current zone-level estimate only while a reviewed model and supplied
-observations support that use. Keep model class, evidence validity and declared
-domain eligibility separate. `unknown` is a useful result when a condition is
-unresolved or the model abstains.
+Publish one current zone-level estimate only while a reviewed model and
+supplied observations support that use. Keep model class, evidence validity and
+declared domain eligibility separate. `unknown` is a useful result when a
+condition is unresolved or the model abstains.
 
-The first version is one C++17 Linux process, one local normalized NDJSON input,
-one startup-selected frozen model/profile and one atomic local JSON output.
-An operator or local application inspects class, age and reasons through that
+Version 0.1.0 is one C++17 Linux process, one local normalized NDJSON input,
+one startup-selected frozen model/profile and one atomic local JSON output. An
+operator or local application inspects class, age and reasons through that
 record; there is no built-in UI or management API. Acquisition, training and
 measurement policy remain outside the means. Configuration changes use restart.
 
@@ -38,7 +40,7 @@ All editable sources are in the [PlantUML catalogue](diagrams/README.md).
 | Decision | Choice and reason |
 |---|---|
 | Clean Architecture | Plain domain values/rules; one concrete application coordinator; adapters and Linux composition root outside. Source dependencies point inward. |
-| Minimal abstractions | One inference behavior contract. Time, observations, jobs and results are plain values; other components are concrete. No interface per box. |
+| Minimal abstractions | One inference job/outcome boundary. Time, observations, jobs and results are plain values; other components are concrete. No interface per box. |
 | Execution | Serialized coordinator plus one worker keeps inference off the expiry loop. One running job and at most one pending latest window bound memory. |
 | Retention | Rejecting a candidate does not erase independently eligible earlier evidence. Its original horizon never changes. |
 | Publication | Exactly one atomic current JSON file with separate bounded diagnostics and optional history, in a configured volatile directory. |
@@ -57,7 +59,8 @@ artifacts/declarations; it cannot certify their scientific validity.
 
 ## Requirements and acceptance routes
 
-All routes below are future checks, not completed software tests.
+These requirements are exercised by the software checks linked below. Physical
+model/platform qualification remains distinct.
 
 | ID | Required behavior | Verification route |
 |---|---|---|
@@ -71,21 +74,21 @@ All routes below are future checks, not completed software tests.
 | R8 | Make no person-count, distress or assistance decision | Boundary review and consumer contract cases |
 | R9 | Keep inner code independent of platform/backend/serialization types | Core build and dependency review |
 
-See [verification](verification.md) for scenarios. The
-[five-cause decision table](lifecycle.md#five-causes-of-lost-observational-support)
-connects the practical behavior to the observation-support problem. Physical
-accuracy, environmental transfer and operational suitability need separate studies.
+See [verification](verification.md) for scenarios. The [five-cause decision
+table](lifecycle.md#five-causes-of-lost-observational-support) connects the
+practical behavior to the observation-support problem. Physical accuracy,
+environmental transfer and operational suitability need separate studies.
 
-## Inputs to resolve before implementation
+## Inputs required for physical deployment
 
 - Select and review one actual presence model/pipeline/backend, including
   stationary-presence evidence and exact supported subsets.
-- Freeze the one normalized input encoding, result schema and canonical hash
-  rules before producers/consumers depend on them. No legacy auto-detection.
+- Use the frozen v1 normalized input, bundle and result contracts. Qualify the
+  chosen producer against their time, feature, continuity and integrity facts.
 - Derive window, missingness, alignment, age and resource limits from that model
   and intended evaluation; no numerical defaults are justified by this design.
-- Name the first Linux architecture/toolchain and producer interface. Embedded
-  SDK/image and packaging qualification follow separately.
+- The tested host/guest architecture is Linux x86-64 with GCC/Clang builds.
+  Qualify the actual producer and any embedded SDK/image/package separately.
 - Establish source-to-host capture mappings and same-host consumer clock trust.
   Linux expiry uses a clock including suspend time; a process restart never
   resets evidence age or restores a prior categorical result.
